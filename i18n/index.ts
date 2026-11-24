@@ -40,7 +40,7 @@ const es = {
   deleteSamples: 'Borrar ejemplos', deleteSamplesPrompt: '¿Borrar las salidas de ejemplo?',
   deleteAll: 'Borrar todos mis datos', deleteAllPrompt: '¿Borrar todas las salidas y sus fotos de este dispositivo?',
   deleteError: 'No se pudieron borrar los datos.',
-  privacy: 'Privacidad', terms: 'Términos',
+  privacy: 'Privacidad', terms: 'Términos', profileMenu: 'Menú de perfil', closeMenu: 'Cerrar menú',
   privacyBody: 'Tu diario y tus fotos se guardan en el dispositivo. Si consultas las condiciones, se envían las coordenadas y la fecha a Open-Meteo. El mapa solicita teselas para la zona visible. Puedes exportar o borrar tu diario desde Perfil.',
   termsBody: 'Utiliza TrailCatch respetando las normas locales, las licencias de pesca y el acceso a espacios naturales. Comprueba las condiciones antes de salir.',
   units: { km: 'km', min: 'min', m: 'm', kg: 'kg', cm: 'cm', wind: 'km/h', pressure: 'hPa', rain: 'mm', temp: '°C' },

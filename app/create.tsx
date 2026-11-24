@@ -3,7 +3,7 @@ import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Keyboard, Linking, ScrollView, Text, View } from 'react-native';
+import { Alert, Keyboard, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapView } from '../components/MapView';
 import { Button, Field, Header, IconButton, side, styles, usePalette } from '../components/ui';
@@ -197,8 +197,8 @@ export default function Create() {
     const status = photoStatus?.catchKey === catchItem?.key ? photoStatus?.message : undefined;
     return <>
       <View style={styles.columns}>
-        <Button label={t.gallery} icon="images-outline" stretch disabled={!!busy} onPress={() => void pick('library', catchItem)} />
-        <Button label={t.camera} icon="camera-outline" stretch disabled={!!busy} onPress={() => void pick('camera', catchItem)} />
+        <Button label={t.gallery} icon="images-outline" stretch stacked disabled={!!busy} onPress={() => void pick('library', catchItem)} />
+        <Button label={t.camera} icon="camera-outline" stretch stacked disabled={!!busy} onPress={() => void pick('camera', catchItem)} />
       </View>
       {status && <Text accessibilityLiveRegion="polite" style={{ color: busy === 'photo' ? p.muted : p.danger }}>{status}</Text>}
     </>;
@@ -209,7 +209,7 @@ export default function Create() {
     <ScrollView className="flex-1" keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets
       contentInsetAdjustmentBehavior="never"
       contentContainerStyle={[styles.content, { gap: 24, paddingBottom: inset.bottom + side }]}>
-      <View style={styles.group}>
+      <View style={formStyles.group}>
         <Text style={[styles.section, { color: p.ink }]}>{t.photos}</Text>
         {photoControls()}
         {photos.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
@@ -219,24 +219,38 @@ export default function Create() {
           }))}
         </ScrollView>}
       </View>
-      <View style={styles.group}>
-        <View style={styles.columns}>{outingTypes.map((item) =>
-          <Button key={item} label={t[item]} stretch selected={type === item} disabled={!!busy} onPress={() => setType(item)} />)}</View>
+      <View style={formStyles.group}>
+        <View accessibilityRole="radiogroup" accessibilityLabel={t.type}
+          style={[formStyles.segmented, { backgroundColor: p.soft, borderColor: p.line }]}>
+          {outingTypes.map((item) => {
+            const selected = type === item;
+            const foreground = selected ? (p.dark ? '#12251B' : '#FFFFFF') : p.ink;
+            return (
+              <Pressable key={item} accessibilityRole="radio" accessibilityState={{ checked: selected, disabled: !!busy }}
+                disabled={!!busy} onPress={() => setType(item)}
+                style={({ pressed }) => [formStyles.segment, {
+                  backgroundColor: selected ? p.accent : 'transparent', opacity: pressed ? 0.7 : 1,
+                }]}>
+                <Text style={[formStyles.segmentLabel, { color: foreground }]}>{t[item]}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
         <Field label={t.title} value={title} onChangeText={setTitle} />
         <Field label={t.date} value={date} onChangeText={setDate} placeholder={t.dateHint} autoCapitalize="none" maxLength={10} />
         <Field label={t.notes} value={notes} onChangeText={setNotes} multiline />
       </View>
-      <View style={styles.group}>
+      <View style={formStyles.group}>
         <View style={{ gap: 4 }}>
           <Text style={[styles.section, { color: p.ink }]}>{t.location}</Text>
           <Text style={{ color: p.muted }}>{t.pickPoint}</Text>
         </View>
         <MapView point={point} movedTo={movedTo} onPick={setPoint} height={200} />
-        <Button label={busy === 'location' ? t.loading : t.myLocation} icon="locate-outline" disabled={!!busy} onPress={() => void locate()} />
+        <Button label={busy === 'location' ? t.loading : t.myLocation} icon="locate-outline" singleLine disabled={!!busy} onPress={() => void locate()} />
       </View>
-      {type !== 'hike' && <View style={styles.group}>
+      {type !== 'hike' && <View style={formStyles.group}>
         <Text style={[styles.section, { color: p.ink }]}>{t.catches}</Text>
-        {catches.map((item) => <View key={item.key} style={{ gap: 12, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: p.line, backgroundColor: p.surface }}>
+        {catches.map((item) => <View key={item.key} style={[formStyles.catchCard, { borderColor: p.line, backgroundColor: p.surface }]}>
           {(['species', 'size', 'weight', 'bait', 'time'] as const).map((field) => <Field key={field}
             label={t[field]} value={item[field]} onChangeText={(value) => updateCatch(item.key, { [field]: value })}
             keyboardType={field === 'size' || field === 'weight' ? 'decimal-pad' : 'default'} />)}
@@ -256,7 +270,7 @@ export default function Create() {
           setCatches((old) => [...old, { key, species: '', size: '', weight: '', bait: '', time: '' }]);
         }} />
       </View>}
-      {type !== 'fishing' && <View style={styles.group}>
+      {type !== 'fishing' && <View style={formStyles.group}>
         <Text style={[styles.section, { color: p.ink }]}>{t.hike}</Text>
         {(['distance', 'duration', 'ascent'] as const).map((field) => <Field key={field} label={t[field]}
           value={route[field]} keyboardType="decimal-pad" onChangeText={(value) => setRoute((old) => ({ ...old, [field]: value }))} />)}
@@ -266,3 +280,13 @@ export default function Create() {
     </ScrollView>
   </>;
 }
+
+
+const formStyles = StyleSheet.create({
+  group: { gap: 16 },
+  segmented: { flexDirection: 'row', padding: 4, gap: 4, borderWidth: 1, borderRadius: 14 },
+  segment: { flex: 1, minWidth: 0, minHeight: 44, borderRadius: 10, paddingHorizontal: 4, paddingVertical: 8,
+    alignItems: 'center', justifyContent: 'center' },
+  segmentLabel: { textAlign: 'center', fontWeight: '700', fontSize: 13 },
+  catchCard: { gap: 16, padding: 16, borderRadius: 16, borderWidth: 1 },
+});
