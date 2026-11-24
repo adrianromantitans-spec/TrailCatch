@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -36,7 +37,7 @@ export default function Detail() {
     setSending(true);
     setSendError(false);
     try {
-      const newComment = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, text: text.trim() };
+      const newComment = { id: randomUUID(), text: text.trim() };
       await updateOuting(db, id, (old) => ({ ...old, comments: [...old.comments, newComment] }));
       setText('');
       await load();
@@ -53,13 +54,13 @@ export default function Detail() {
         contentInsetAdjustmentBehavior="never" contentContainerStyle={[styles.content, { paddingBottom: inset.bottom + side }]}>
         <Text style={{ color: p.muted }}>{t[item.type]} · {relativeDate(item.date)}</Text>
         {photos.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-          {photos.map((photo, index) => <Image key={index} source={photoSource(photo)} transition={150}
+          {photos.map((photo, index) => <Image key={`photo-${item.id}-${index}`} source={photoSource(photo)} transition={150}
             style={{ width: galleryWidth, aspectRatio: 4 / 5, borderRadius: 12, backgroundColor: p.soft }} />)}
         </ScrollView>}
         {item.notes ? <Text style={{ color: p.ink, fontSize: 16 }}>{item.notes}</Text> : null}
         {item.catches.length > 0 && <View style={{ gap: 8 }}>
           <Text style={[styles.section, { color: p.ink }]}>{t.catches}</Text>
-          {item.catches.map((capture, index) => <Text key={index} style={{ color: p.ink }}>
+          {item.catches.map((capture, index) => <Text key={`catch-${item.id}-${index}`} style={{ color: p.ink }}>
             {[capture.species, capture.size == null ? '' : `${capture.size} ${t.units.cm}`,
               capture.weight == null ? '' : `${capture.weight} ${t.units.kg}`, capture.bait, capture.time].filter(Boolean).join(' · ') || t.unavailable}
           </Text>)}
@@ -69,14 +70,14 @@ export default function Detail() {
           {([['distance', 'km'], ['duration', 'min'], ['ascent', 'm']] as const).map(([field, unit]) =>
             item.route?.[field] != null && <Text key={field} style={{ color: p.ink }}>{t[field]} · {item.route[field]} {t.units[unit]}</Text>)}
         </View>}
-        <MapView key={item.id} point={item.point} height={240} />
-        <Conditions key={item.id} date={item.date} point={item.point} />
+        <MapView key={`map-${item.id}`} point={item.point} height={240} />
+        <Conditions key={`conditions-${item.id}`} date={item.date} point={item.point} />
         <View style={{ gap: 12 }} onLayout={comments ? ({ nativeEvent }) => {
           scroll.current?.scrollTo({ y: nativeEvent.layout.y - side, animated: false });
         } : undefined}>
           <Text style={[styles.section, { color: p.ink }]}>{t.comments}</Text>
-          {item.comments.length ? item.comments.map((entry) =>
-            <Text key={entry.id} style={{ color: p.ink }}>{entry.text}</Text>)
+          {item.comments.length ? item.comments.map((entry, index) =>
+            <Text key={`${entry.id}-${index}`} style={{ color: p.ink }}>{entry.text}</Text>)
             : <Text style={{ color: p.muted }}>{t.noComments}</Text>}
           <Field label={t.comment} placeholder={t.commentPlaceholder} value={text} onChangeText={setText} />
           {sendError && <Text style={{ color: p.danger }}>{t.saveError}</Text>}

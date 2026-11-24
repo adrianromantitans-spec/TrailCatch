@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto';
 import { Image } from 'expo-image';
 import * as Location from 'expo-location';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -9,7 +10,7 @@ import { CategoryPicker } from '../components/CategoryPicker';
 import { MapView } from '../components/MapView';
 import { OutingCamera } from '../components/OutingCamera';
 import { Button, Field, Header, IconButton, side, styles, usePalette } from '../components/ui';
-import { putOuting } from '../db/diary';
+import { insertOuting } from '../db/diary';
 import { localDate, OutingType, Photo, Point } from '../db/model';
 import { t } from '../i18n';
 import { discardPhotos, photoSource, removePhoto } from '../services/photos';
@@ -184,8 +185,8 @@ export default function Create() {
     const kept = pending.current;
     pending.current = new Set();
     try {
-      await putOuting(db, {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, title: title.trim(), date: day,
+      await insertOuting(db, {
+        id: randomUUID(), title: title.trim(), date: day,
         notes: notes.trim(), point, type, photos,
         catches: catchItems.map((item) => ({
           species: item.species.trim(), size: number(item.size), weight: number(item.weight),

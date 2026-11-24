@@ -40,10 +40,18 @@ export function useOutingPages(filter: Parameters<typeof pageOutings>[2] = {}) {
       if (current.version !== version) return;
       current.next = page + 1;
       current.more = result.more;
-      setResult((old) => ({
-        key: filterKey, error: false,
-        items: reset ? result.items : [...(old?.key === filterKey ? old.items ?? [] : []), ...result.items],
-      }));
+      setResult((old) => {
+        const previous = !reset && old?.key === filterKey ? old.items ?? [] : [];
+        const seen = new Set(previous.map(({ id }) => id));
+        const items = [...previous];
+        for (const item of result.items) {
+          // Offset pages can overlap when a new outing is added between reads.
+          if (seen.has(item.id)) continue;
+          seen.add(item.id);
+          items.push(item);
+        }
+        return { key: filterKey, error: false, items };
+      });
     } catch {
       if (current.version === version) {
         setResult((old) => ({

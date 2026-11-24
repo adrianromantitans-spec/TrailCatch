@@ -25,30 +25,64 @@ function seed(): Outing[] {
   ];
 }
 
+const insertSql = 'INSERT INTO outings (id, date, type, sample, search_text, data) VALUES (?, ?, ?, ?, ?, ?)';
+
+function outingValues(outing: Outing) {
+  const search = [outing.title, outing.notes, ...outing.catches.map((item) => item.species)].join(' ');
+  return [outing.id, outing.date, outing.type, Number(!!outing.sample), normalize(search), JSON.stringify(outing)];
+}
+
 export async function initialize(db: SQLiteDatabase) {
   await db.execAsync('PRAGMA journal_mode = WAL');
   await db.withExclusiveTransactionAsync(async (tx) => {
-    const version = await tx.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-    if (version?.user_version) return;
+    const version = (await tx.getFirstAsync<{ user_version: number }>('PRAGMA user_version'))?.user_version ?? 0;
+    if (version >= 2) return;
     await tx.execAsync(`
-      CREATE TABLE outings (
+      CREATE TABLE IF NOT EXISTS outings (
         id TEXT PRIMARY KEY NOT NULL, date TEXT NOT NULL, type TEXT NOT NULL,
         sample INTEGER NOT NULL, search_text TEXT NOT NULL, data TEXT NOT NULL
       );
-      CREATE INDEX outings_order ON outings (date DESC, id DESC);
-      PRAGMA user_version = 1;
+      CREATE INDEX IF NOT EXISTS outings_order ON outings (date DESC, id DESC);
+      DELETE FROM outings WHERE rowid IN (
+        SELECT rowid FROM (
+          SELECT rowid, ROW_NUMBER() OVER (PARTITION BY id ORDER BY date DESC, rowid DESC) AS duplicate_rank
+          FROM outings
+        ) WHERE duplicate_rank > 1
+      );
+      DELETE FROM outings WHERE rowid IN (
+        SELECT rowid FROM (
+          SELECT rowid, ROW_NUMBER() OVER (
+            PARTITION BY COALESCE(NULLIF(json_extract(data, '$.id'), ''), id)
+            ORDER BY (id = json_extract(data, '$.id')) DESC, date DESC, rowid DESC
+          ) AS duplicate_rank
+          FROM outings
+        ) WHERE duplicate_rank > 1
+      );
+      UPDATE outings SET data = json_set(data, '$.id', id)
+      WHERE json_extract(data, '$.id') IS NOT id;
     `);
-    for (const outing of seed()) await putOuting(tx, outing);
+    // A normal installation already enforces this through the primary key.
+    const idColumn = await tx.getFirstAsync<{ pk: number }>("SELECT pk FROM pragma_table_info('outings') WHERE name = 'id'");
+    if (!idColumn?.pk) await tx.execAsync('CREATE UNIQUE INDEX IF NOT EXISTS outings_unique_id ON outings(id)');
+    if (version === 0) {
+      for (const outing of seed()) {
+        await tx.runAsync(`${insertSql} ON CONFLICT(id) DO NOTHING`, ...outingValues(outing));
+      }
+    }
+    await tx.execAsync('PRAGMA user_version = 2');
   });
 }
 
+export async function insertOuting(db: SQLiteDatabase, outing: Outing) {
+  await db.runAsync(insertSql, ...outingValues(outing));
+}
+
 export async function putOuting(db: SQLiteDatabase, outing: Outing) {
-  const search = [outing.title, outing.notes, ...outing.catches.map((item) => item.species)].join(' ');
   await db.runAsync(
-    `INSERT INTO outings (id, date, type, sample, search_text, data) VALUES (?, ?, ?, ?, ?, ?)
+    `${insertSql}
      ON CONFLICT(id) DO UPDATE SET date=excluded.date, type=excluded.type, sample=excluded.sample,
      search_text=excluded.search_text, data=excluded.data`,
-    outing.id, outing.date, outing.type, Number(!!outing.sample), normalize(search), JSON.stringify(outing),
+    ...outingValues(outing),
   );
 }
 
