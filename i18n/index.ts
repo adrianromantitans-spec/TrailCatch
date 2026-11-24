@@ -34,7 +34,7 @@ const es = {
   saved: 'Guardados', all: 'Todas', searchPlaceholder: 'Buscar salidas por título o notas',
   standard: 'Estándar', satellite: 'Satélite', terrain: 'Relieve', osm: '© OpenStreetMap contributors',
   discoverMap: 'Explorar mapa', mappedTrails: 'Senderos', mappedFishing: 'Pesca', unnamedTrail: 'Sendero',
-  fishingPlace: 'Lugar de pesca', searchMapArea: 'Buscar en esta zona', zoomDiscovery: 'Acerca el mapa para buscar en esta zona.',
+  fishingPlace: 'Lugar de pesca', searchMapArea: 'Buscar en esta zona', zoomDiscovery: 'El mapa se acercará para buscar alrededor del centro.',
   discoverMapError: 'No se pudieron consultar los datos del mapa. Vuelve a intentarlo.',
   noMappedTrails: 'No hay senderos registrados en esta zona del mapa.',
   noMappedFishing: 'No hay lugares señalados para pescar en esta zona del mapa.',
@@ -107,7 +107,7 @@ const translations: Record<Locale, Partial<typeof es>> = {
   es,
   en: {
     discoverMap: 'Explore map', mappedTrails: 'Trails', mappedFishing: 'Fishing', unnamedTrail: 'Trail',
-    fishingPlace: 'Fishing spot', searchMapArea: 'Search this area', zoomDiscovery: 'Zoom in to search this area.',
+    fishingPlace: 'Fishing spot', searchMapArea: 'Search this area', zoomDiscovery: 'The map will zoom in and search around the centre.',
     discoverMapError: 'Could not load map data. Try again.', noMappedTrails: 'No trails are mapped in this area.',
     noMappedFishing: 'No fishing spots are marked in this area.', selectMapFeature: 'Tap a marker for directions.',
     closeMapFeature: 'Close place details', trailAccessWarning: 'The marker shows a point on the trail. Check access and trail conditions before you go.',
@@ -118,7 +118,7 @@ const translations: Record<Locale, Partial<typeof es>> = {
   },
   ro: {
     discoverMap: 'Explorează harta', mappedTrails: 'Trasee', mappedFishing: 'Pescuit', unnamedTrail: 'Traseu',
-    fishingPlace: 'Loc de pescuit', searchMapArea: 'Caută în această zonă', zoomDiscovery: 'Mărește harta pentru a căuta în zonă.',
+    fishingPlace: 'Loc de pescuit', searchMapArea: 'Caută în această zonă', zoomDiscovery: 'Harta se va mări pentru a căuta în jurul centrului.',
     discoverMapError: 'Datele hărții nu au putut fi încărcate. Încearcă din nou.', noMappedTrails: 'Nu sunt trasee înregistrate pe hartă în această zonă.',
     noMappedFishing: 'Nu sunt locuri de pescuit marcate în această zonă.', selectMapFeature: 'Atinge un marcaj pentru indicații.',
     closeMapFeature: 'Închide detaliile locului', trailAccessWarning: 'Marcajul indică un punct pe traseu. Verifică accesul și starea traseului înainte de plecare.',

@@ -11,6 +11,7 @@ export type DiscoveryFeature = {
 };
 
 type Bounds = [south: number, west: number, north: number, east: number];
+type DiscoveryRegion = Point & { latitudeDelta: number; longitudeDelta: number };
 type Coordinate = { lat: number; lon: number };
 type Geometry = (Coordinate | null)[];
 type Element = {
@@ -22,12 +23,20 @@ type ResponseData = { elements?: Element[]; remark?: string };
 
 const globalEndpoints = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
 const cache = new Map<string, { items: DiscoveryFeature[]; expires: number }>();
+const maxSearchDelta = 0.18;
 
-export function discoveryBounds({ latitude, longitude, latitudeDelta, longitudeDelta }: Point & {
-  latitudeDelta: number; longitudeDelta: number;
-}): Bounds | undefined {
+export function focusDiscoveryRegion(region: DiscoveryRegion): DiscoveryRegion {
+  const span = Math.max(region.latitudeDelta, region.longitudeDelta);
+  if (!Number.isFinite(span) || span <= maxSearchDelta) return region;
+
+  // Leave room for the native map to adjust the camera to its aspect ratio.
+  const scale = (maxSearchDelta * 0.8) / span;
+  return { ...region, latitudeDelta: region.latitudeDelta * scale, longitudeDelta: region.longitudeDelta * scale };
+}
+
+export function discoveryBounds({ latitude, longitude, latitudeDelta, longitudeDelta }: DiscoveryRegion): Bounds | undefined {
   if (![latitude, longitude, latitudeDelta, longitudeDelta].every(Number.isFinite) ||
-      latitudeDelta <= 0 || longitudeDelta <= 0 || latitudeDelta > 0.18 || longitudeDelta > 0.18) return;
+      latitudeDelta <= 0 || longitudeDelta <= 0 || latitudeDelta > maxSearchDelta || longitudeDelta > maxSearchDelta) return;
   const south = Math.max(-90, latitude - latitudeDelta / 2);
   const west = Math.max(-180, longitude - longitudeDelta / 2);
   const north = Math.min(90, latitude + latitudeDelta / 2);

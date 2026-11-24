@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { initialMapRegion, MapView } from '../components/MapView';
+import type { MapRegion } from '../components/MapView';
 import { Button, Header, IconButton, side, styles, usePalette } from '../components/ui';
 import type { Point } from '../db/model';
 import { t } from '../i18n';
-import { discoverMap, discoveryBounds } from '../services/mapDiscovery';
+import { discoverMap, discoveryBounds, focusDiscoveryRegion } from '../services/mapDiscovery';
 import type { DiscoveryFeature, DiscoveryKind } from '../services/mapDiscovery';
 
 const initialRegion = { ...initialMapRegion, latitudeDelta: 0.075, longitudeDelta: 0.075 };
@@ -18,14 +19,15 @@ export default function DiscoverMap() {
   const { bottom } = useSafeAreaInsets();
   const [kind, setKind] = useState<DiscoveryKind>('trails');
   const [region, setRegion] = useState(initialRegion);
-  const [destination, setDestination] = useState<Point>();
+  const [destination, setDestination] = useState<Point & Partial<MapRegion>>();
   const [items, setItems] = useState<DiscoveryFeature[]>([]);
   const [selected, setSelected] = useState<DiscoveryFeature>();
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'empty' | 'error'>('idle');
   const [locating, setLocating] = useState(false);
   const request = useRef<AbortController>(null);
   const mounted = useRef(false);
-  const bounds = discoveryBounds(region);
+  const searchRegion = focusDiscoveryRegion(region);
+  const bounds = discoveryBounds(searchRegion);
   const pinColor = kind === 'trails' ? '#255A46' : '#28687C';
   const featureName = (feature: DiscoveryFeature) => feature.name || (kind === 'trails' ? t.unnamedTrail : t.fishingPlace);
 
@@ -45,6 +47,7 @@ export default function DiscoverMap() {
 
   async function search() {
     if (!bounds) return;
+    if (searchRegion !== region) setDestination(searchRegion);
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
@@ -84,7 +87,7 @@ export default function DiscoverMap() {
   }
 
   const summary = status === 'loading' ? t.loading : status === 'error' ? t.discoverMapError
-    : !bounds ? t.zoomDiscovery : status === 'empty' ? (kind === 'trails' ? t.noMappedTrails : t.noMappedFishing)
+    : searchRegion !== region ? t.zoomDiscovery : status === 'empty' ? (kind === 'trails' ? t.noMappedTrails : t.noMappedFishing)
       : status === 'ready' ? t.selectMapFeature : '';
 
   return <View style={{ flex: 1, backgroundColor: p.bg }}>
