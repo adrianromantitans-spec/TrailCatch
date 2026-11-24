@@ -99,7 +99,7 @@ export function OutingCamera({ onClose, onPhotos, multiple, readLocation, previe
               : <Ionicons name="images-outline" size={25} color="#FFF" />}
             <Text style={styles.galleryLabel}>{t.gallery}</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={t.takePhoto} disabled={!permission?.granted || !ready || busy}
+          <Pressable cssInterop={false} accessibilityRole="button" accessibilityLabel={t.takePhoto} disabled={!permission?.granted || !ready || busy}
             onPress={() => void choose(true)}
             style={({ pressed }) => [styles.shutter, { opacity: !ready || busy ? 0.45 : pressed ? 0.7 : 1 }]}>
             <View style={styles.shutterCenter} />

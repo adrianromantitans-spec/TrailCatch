@@ -240,7 +240,7 @@ export default function Create() {
             setPhotos((old) => old.filter((item) => item !== photo));
           }))}
         </ScrollView>}
-        <Button label={t.addMorePhotos} icon="add" disabled={!!busy} onPress={() => openCamera('outing')} />
+        <Button label={t.addMorePhotos} icon="add" dashed singleLine disabled={!!busy} onPress={() => openCamera('outing')} />
       </View>
       <View style={formStyles.group}>
         <CategoryPicker value={type} onChange={setType} disabled={!!busy} />

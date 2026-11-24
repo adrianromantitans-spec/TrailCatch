@@ -21,12 +21,13 @@ const dark = {
 export const usePalette = () => useColorScheme() === 'dark' ? dark : light;
 export const side = 20;
 
+// Style callbacks must reach the native Pressable unchanged to keep the pressed and resting styles.
 export function IconButton({ name, label, onPress, color, align, expanded }: {
   name: IconName; label: string; onPress: () => void; color?: string; align?: 'start' | 'end'; expanded?: boolean;
 }) {
   const p = usePalette();
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ expanded }}
+    <Pressable cssInterop={false} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ expanded }}
       onPress={onPress} style={({ pressed }) => [styles.icon, { opacity: pressed ? 0.55 : 1,
         alignItems: align === 'start' ? 'flex-start' : align === 'end' ? 'flex-end' : 'center',
       }]}>
@@ -47,20 +48,20 @@ export function Header({ title, back, children }: { title: string; back?: () => 
   );
 }
 
-export function Button({ label, onPress, icon, primary, danger, selected, disabled, stretch, singleLine }: {
+export function Button({ label, onPress, icon, primary, danger, selected, disabled, stretch, singleLine, dashed }: {
   label: string; onPress: () => void; icon?: IconName; primary?: boolean; danger?: boolean;
-  selected?: boolean; disabled?: boolean; stretch?: boolean; singleLine?: boolean;
+  selected?: boolean; disabled?: boolean; stretch?: boolean; singleLine?: boolean; dashed?: boolean;
 }) {
   const p = usePalette();
-  const color = primary ? onBrand : danger ? p.danger : selected ? p.accent : p.ink;
+  const color = primary ? onBrand : disabled ? p.muted : danger ? p.danger : selected || dashed ? p.accent : p.ink;
   return (
-    <Pressable accessibilityRole="button" accessibilityState={{ selected, disabled }} disabled={disabled}
-      onPress={onPress} style={({ pressed }) => [styles.button, stretch && styles.stretchButton, {
+    <Pressable cssInterop={false} accessibilityRole="button" accessibilityState={{ selected, disabled }} disabled={disabled}
+      onPress={onPress} style={({ pressed }) => [styles.button, primary && styles.primaryButton, stretch && styles.stretchButton,
+        dashed && styles.dashedButton, {
         backgroundColor: primary
           ? disabled ? '#465F55' : pressed ? '#1C4938' : brandGreen
-          : selected ? p.soft : p.surface,
-        borderColor: primary ? brandGreen : selected ? p.accent : p.line,
-        opacity: !primary && (disabled || pressed) ? 0.6 : 1,
+          : selected || pressed || disabled ? p.soft : p.surface,
+        borderColor: primary ? brandGreen : selected || dashed ? p.accent : p.line,
       }]}>
       {icon && <Ionicons name={icon} size={18} color={color} />}
       <Text numberOfLines={singleLine ? 1 : undefined} adjustsFontSizeToFit={singleLine}
@@ -106,6 +107,8 @@ export const styles = StyleSheet.create({
   headerText: { flex: 1, fontWeight: '800', fontSize: 23, letterSpacing: -0.6 },
   icon: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   button: { minHeight: 44, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
+  primaryButton: { height: 52, borderRadius: 16 },
+  dashedButton: { borderStyle: 'dashed', borderRadius: 16, alignSelf: 'stretch' },
   stretchButton: { flex: 1, minWidth: 0 },
   fieldLabel: { fontWeight: '600' },
   input: { minHeight: 48, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12, fontSize: 16 },

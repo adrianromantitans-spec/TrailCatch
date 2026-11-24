@@ -48,14 +48,15 @@ function CategoryCard({ option, selected, width, disabled, onPress }: {
   const color = selected ? onBrand : brandGreen;
   return (
     <Animated.View style={[width == null ? styles.fill : { width }, motion]}>
-      <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected, disabled }}
+      <Pressable cssInterop={false} accessibilityRole="radio" accessibilityState={{ checked: selected, disabled }}
         disabled={disabled} onPress={onPress}
         style={({ pressed }) => [styles.card, {
           backgroundColor: selected ? brandGreen : pressed ? '#E7F1EB' : '#FFFFFF',
           borderColor: selected ? brandGreen : '#D4DFD8',
         }]}>
         <CategoryIcon option={option} size={22} color={color} />
-        <Text style={[styles.label, { color }]}>{t[option]}</Text>
+        <Text numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85} maxFontSizeMultiplier={1.25}
+          style={[styles.label, { color }]}>{t[option]}</Text>
       </Pressable>
     </Animated.View>
   );
@@ -101,10 +102,11 @@ const styles = StyleSheet.create({
   picker: { gap: 8 },
   row: { flexDirection: 'row', alignItems: 'stretch', gap },
   fill: { flex: 1, minWidth: 0 },
-  card: { flex: 1, minHeight: 68, borderWidth: 1, borderRadius: 16, paddingVertical: 8, paddingHorizontal: 4,
+  card: { width: '100%', height: 72, flexDirection: 'column', borderWidth: 1, borderRadius: 16,
+    paddingVertical: 5, paddingHorizontal: 4,
     gap: 4, alignItems: 'center', justifyContent: 'center' },
   iconPair: { flexDirection: 'row', alignItems: 'center', gap: 1 },
-  label: { textAlign: 'center', fontSize: 13, fontWeight: '700' },
+  label: { textAlign: 'center', fontSize: 13, fontWeight: '700', maxWidth: '100%' },
   badge: { alignSelf: 'flex-start', maxWidth: '100%', flexDirection: 'row', alignItems: 'center',
     borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, gap: 4, backgroundColor: '#E7F1EB' },
   badgeLabel: { fontSize: 12, fontWeight: '600', flexShrink: 1 },
