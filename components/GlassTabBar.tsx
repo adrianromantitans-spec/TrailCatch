@@ -10,7 +10,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../i18n';
 import { IconName, side, usePalette } from './ui';
 
-const barHeight = 64;
+const barHeight = 68;
+const barRadius = barHeight / 2;
 const barBottom = (inset: number) => Math.max(inset, 8) + 8;
 
 export function useTabClearance() {
@@ -20,7 +21,7 @@ export function useTabClearance() {
 export const tabNames = ['index', 'map', 'explore', 'profile'] as const;
 type TabName = typeof tabNames[number];
 const icons: Record<TabName, IconName> = {
-  index: 'home-outline', map: 'map-outline', explore: 'compass-outline', profile: 'person-outline',
+  index: 'home-outline', map: 'map-outline', explore: 'search-outline', profile: 'person-outline',
 };
 type Targets = Record<TabName, ReturnType<typeof createRef<ComponentRef<typeof View>>>>;
 const TargetContext = createContext<Targets | null>(null);
@@ -76,9 +77,9 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
           if (!selected && !event.defaultPrevented) navigateToTab(route.key);
         }}>
         <View style={styles.tabIcon}><Ionicons name={icons[name]} size={23} color={selected ? p.accent : p.muted} /></View>
-        <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[styles.label, { color: p.accent }]}>
-          {selected ? label : ' '}
-        </Text>
+        {selected && <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[styles.label, { color: p.accent }]}>
+          {label}
+        </Text>}
       </Pressable>
     );
   }
@@ -121,13 +122,14 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  outer: { position: 'absolute', borderRadius: 32, elevation: 5,
+  outer: { position: 'absolute', borderRadius: barRadius, elevation: 5,
     shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 5 } },
-  pill: { height: barHeight, borderRadius: 32, borderWidth: 1, overflow: 'hidden' },
+  pill: { height: barHeight, borderRadius: barRadius, borderWidth: 1, overflow: 'hidden' },
   tabRow: { flex: 1, flexDirection: 'row' },
-  tabIcon: { height: 24, justifyContent: 'center' },
-  slot: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  indicator: { position: 'absolute', top: 7, bottom: 7, left: 4, borderRadius: 24 },
-  label: { fontSize: 10, lineHeight: 14, textAlign: 'center', fontWeight: '700', maxWidth: '100%' },
+  tabIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  slot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  indicator: { position: 'absolute', top: 5, bottom: 3, left: 4, borderRadius: 28 },
+  label: { position: 'absolute', left: 2, right: 2, bottom: 3, fontSize: 10,
+    lineHeight: 14, includeFontPadding: false, textAlign: 'center', fontWeight: '700' },
   plus: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
 });

@@ -12,7 +12,7 @@ export default function TabsLayout() {
         tabBar={(props) => <GlassTabBar {...props} onCreate={() => router.push('/create')} />}>
         <Tabs.Screen name="index" options={{ title: t.home }} />
         <Tabs.Screen name="map" options={{ title: t.map }} />
-        <Tabs.Screen name="explore" options={{ title: t.explore }} />
+        <Tabs.Screen name="explore" options={{ title: t.search }} />
         <Tabs.Screen name="profile" options={{ title: t.profile }} />
       </Tabs>
     </GlassTargets>

@@ -3,15 +3,17 @@ import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Alert, Keyboard, Linking, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapView } from '../components/MapView';
 import { Button, Field, Header, IconButton, side, styles, usePalette } from '../components/ui';
 import { putOuting } from '../db/diary';
 import { localDate, OutingType, outingTypes, Photo, Point } from '../db/model';
 import { t } from '../i18n';
-import { photoSource, removePhoto, selectPhotos } from '../services/photos';
+import { CameraPermissionError, discardPhotos, photoSource, removePhoto, selectPhotos } from '../services/photos';
+import type { PhotoOrigin } from '../services/photos';
 
+type Busy = 'save' | 'location' | 'photo';
 type CatchDraft = { key: number; species: string; size: string; weight: string; bait: string; time: string; photo?: Photo };
 const number = (raw: string) => raw.trim() ? Number(raw.trim().replace(',', '.')) : undefined;
 const invalid = (raw: string) => {
@@ -38,7 +40,9 @@ export default function Create() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [catches, setCatches] = useState<CatchDraft[]>([]);
   const [route, setRoute] = useState({ distance: '', duration: '', ascent: '' });
-  const [busy, setBusy] = useState<'save' | 'location' | 'photo'>();
+  const [busy, setBusy] = useState<Busy>();
+  const busyRef = useRef<Busy | undefined>(undefined);
+  const [photoStatus, setPhotoStatus] = useState<{ catchKey?: number; message: string }>();
   const [error, setError] = useState<string>();
   const nextCatch = useRef(0);
   const pending = useRef(new Set<Photo>());
@@ -48,7 +52,7 @@ export default function Create() {
     alive.current = true;
     return () => {
       alive.current = false;
-      pending.current.forEach(removePhoto);
+      discardPhotos(pending.current);
       pending.current.clear();
     };
   }, []);
@@ -62,29 +66,59 @@ export default function Create() {
     setCatches((old) => old.map((item) => item.key === key ? { ...item, ...values } : item));
   }
 
-  async function pick(catchItem?: CatchDraft) {
-    setBusy('photo');
-    setError(undefined);
+  function begin(action: Busy) {
+    if (busyRef.current) return false;
+    busyRef.current = action;
+    setBusy(action);
+    return true;
+  }
+
+  function finish() {
+    busyRef.current = undefined;
+    if (alive.current) setBusy(undefined);
+  }
+
+  async function pick(origin: PhotoOrigin, catchItem?: CatchDraft) {
+    if (!begin('photo')) return;
+    const catchKey = catchItem?.key;
+    setPhotoStatus({ catchKey, message: t.addingPhotos });
+    Keyboard.dismiss();
     try {
-      const picked = await selectPhotos(!catchItem);
+      const picked = await selectPhotos(origin, !catchItem);
       if (!alive.current) {
-        picked.forEach(removePhoto);
+        discardPhotos(picked);
         return;
       }
+      setPhotoStatus(undefined);
+      if (!picked.length) return;
       picked.forEach((item) => pending.current.add(item));
-      if (catchItem && picked[0]) {
-        if (catchItem.photo) remove(catchItem.photo);
+      if (catchItem) {
+        if (catchItem.photo) {
+          discardPhotos([catchItem.photo]);
+          pending.current.delete(catchItem.photo);
+        }
         updateCatch(catchItem.key, { photo: picked[0] });
-      } else if (!catchItem) setPhotos((old) => [...old, ...picked]);
-    } catch {
-      if (alive.current) setError(t.photosError);
+      } else {
+        setPhotos((old) => [...old, ...picked]);
+      }
+    } catch (error) {
+      if (!alive.current) return;
+      if (error instanceof CameraPermissionError) {
+        setPhotoStatus(undefined);
+        Alert.alert(t.cameraDenied, undefined, [
+          { text: t.cancel, style: 'cancel' },
+          { text: t.settings, onPress: () => void Linking.openSettings().catch(() => Alert.alert(t.cameraDenied)) },
+        ]);
+      } else {
+        setPhotoStatus({ catchKey, message: origin === 'camera' ? t.cameraError : t.photosError });
+      }
     } finally {
-      if (alive.current) setBusy(undefined);
+      finish();
     }
   }
 
   async function locate() {
-    setBusy('location');
+    if (!begin('location')) return;
     setError(undefined);
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
@@ -99,11 +133,12 @@ export default function Create() {
     } catch {
       setError(t.locationError);
     } finally {
-      setBusy(undefined);
+      finish();
     }
   }
 
   async function save() {
+    if (busyRef.current) return;
     const day = date.trim();
     if (!title.trim() || !validDate(day) || !point) {
       setError(t.required);
@@ -116,7 +151,7 @@ export default function Create() {
       setError(t.invalidNumbers);
       return;
     }
-    setBusy('save');
+    if (!begin('save')) return;
     setError(undefined);
     // Transfer ownership before saving so a system back gesture can't remove files during a write.
     const kept = pending.current;
@@ -138,14 +173,11 @@ export default function Create() {
       if (alive.current) {
         pending.current = kept;
         setError(t.saveError);
-        setBusy(undefined);
-      } else kept.forEach(removePhoto);
+      } else discardPhotos(kept);
+      finish();
       return;
     }
-    if (type === 'hike') {
-      try { catches.forEach(({ photo }) => { if (photo) removePhoto(photo); }); }
-      catch { if (alive.current) Alert.alert(t.deleteError); }
-    }
+    if (type === 'hike') discardPhotos(catches.flatMap(({ photo }) => photo ? [photo] : []));
     if (alive.current) router.back();
   }
 
@@ -161,31 +193,46 @@ export default function Create() {
     </View>;
   }
 
+  function photoControls(catchItem?: CatchDraft) {
+    const status = photoStatus?.catchKey === catchItem?.key ? photoStatus?.message : undefined;
+    return <>
+      <View style={styles.columns}>
+        <Button label={t.gallery} icon="images-outline" stretch disabled={!!busy} onPress={() => void pick('library', catchItem)} />
+        <Button label={t.camera} icon="camera-outline" stretch disabled={!!busy} onPress={() => void pick('camera', catchItem)} />
+      </View>
+      {status && <Text accessibilityLiveRegion="polite" style={{ color: busy === 'photo' ? p.muted : p.danger }}>{status}</Text>}
+    </>;
+  }
+
   return <>
     <Header title={t.create} back={() => router.back()} />
     <ScrollView className="flex-1" keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets
       contentInsetAdjustmentBehavior="never"
       contentContainerStyle={[styles.content, { gap: 24, paddingBottom: inset.bottom + side }]}>
       <View style={styles.group}>
-        <View style={styles.row}>{outingTypes.map((item) =>
-          <Button key={item} label={t[item]} selected={type === item} disabled={!!busy} onPress={() => setType(item)} />)}</View>
+        <Text style={[styles.section, { color: p.ink }]}>{t.photos}</Text>
+        {photoControls()}
+        {photos.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          {photos.map((photo) => thumbnail(photo, () => {
+            remove(photo);
+            setPhotos((old) => old.filter((item) => item !== photo));
+          }))}
+        </ScrollView>}
+      </View>
+      <View style={styles.group}>
+        <View style={styles.columns}>{outingTypes.map((item) =>
+          <Button key={item} label={t[item]} stretch selected={type === item} disabled={!!busy} onPress={() => setType(item)} />)}</View>
         <Field label={t.title} value={title} onChangeText={setTitle} />
         <Field label={t.date} value={date} onChangeText={setDate} placeholder={t.dateHint} autoCapitalize="none" maxLength={10} />
+        <Field label={t.notes} value={notes} onChangeText={setNotes} multiline />
       </View>
       <View style={styles.group}>
         <View style={{ gap: 4 }}>
           <Text style={[styles.section, { color: p.ink }]}>{t.location}</Text>
           <Text style={{ color: p.muted }}>{t.pickPoint}</Text>
         </View>
-        <MapView point={point} movedTo={movedTo} onPick={setPoint} height={232} />
+        <MapView point={point} movedTo={movedTo} onPick={setPoint} height={200} />
         <Button label={busy === 'location' ? t.loading : t.myLocation} icon="locate-outline" disabled={!!busy} onPress={() => void locate()} />
-      </View>
-      <View style={styles.group}>
-        <Field label={t.notes} value={notes} onChangeText={setNotes} multiline />
-        {photos.length > 0 && <View style={styles.row}>
-          {photos.map((photo) => thumbnail(photo, () => { remove(photo); setPhotos((old) => old.filter((item) => item !== photo)); }))}
-        </View>}
-        <Button label={busy === 'photo' ? t.loading : t.photos} icon="images-outline" disabled={!!busy} onPress={() => void pick()} />
       </View>
       {type !== 'hike' && <View style={styles.group}>
         <Text style={[styles.section, { color: p.ink }]}>{t.catches}</Text>
@@ -193,10 +240,14 @@ export default function Create() {
           {(['species', 'size', 'weight', 'bait', 'time'] as const).map((field) => <Field key={field}
             label={t[field]} value={item[field]} onChangeText={(value) => updateCatch(item.key, { [field]: value })}
             keyboardType={field === 'size' || field === 'weight' ? 'decimal-pad' : 'default'} />)}
+          <Text style={{ color: p.muted, fontWeight: '600' }}>{t.photo}</Text>
+          {photoControls(item)}
           {item.photo && thumbnail(item.photo, () => { remove(item.photo!); updateCatch(item.key, { photo: undefined }); })}
-          <Button label={t.photo} icon="image-outline" disabled={!!busy} onPress={() => void pick(item)} />
           <Button label={t.removeCatch} danger disabled={!!busy} onPress={() => {
-            if (item.photo) remove(item.photo);
+            if (item.photo) {
+              discardPhotos([item.photo]);
+              pending.current.delete(item.photo);
+            }
             setCatches((old) => old.filter(({ key }) => key !== item.key));
           }} />
         </View>)}

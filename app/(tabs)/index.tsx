@@ -27,7 +27,6 @@ export default function Feed() {
 
   return <TabContent name="index">
     <Header title={t.app}>
-      <IconButton name="search-outline" label={t.search} onPress={() => router.navigate('/explore')} />
       <IconButton name="notifications-outline" align="end" label={t.notifications} onPress={() => router.push('/notifications')} />
     </Header>
     {!items && !error ? <FeedSkeleton /> :

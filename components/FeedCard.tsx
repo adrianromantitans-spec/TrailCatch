@@ -71,6 +71,6 @@ const styles = StyleSheet.create({
   card: { borderBottomWidth: StyleSheet.hairlineWidth, marginBottom: 8 },
   author: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: side, paddingVertical: 12 },
   photo: { width: '100%', aspectRatio: 4 / 5 },
-  actions: { flexDirection: 'row', paddingHorizontal: side - 12, paddingTop: 4 },
+  actions: { flexDirection: 'row', columnGap: 12, paddingHorizontal: side - 12, paddingTop: 4 },
   caption: { paddingHorizontal: side, paddingBottom: 16, gap: 4 },
 });

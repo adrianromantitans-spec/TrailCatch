@@ -11,10 +11,20 @@ export function photoFile(photo: Extract<Photo, { uri: string }>) {
   return new File(directory, photo.uri);
 }
 
-export async function selectPhotos(multiple: boolean): Promise<Extract<Photo, { uri: string }>[]> {
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ['images'], allowsMultipleSelection: multiple, selectionLimit: multiple ? 0 : 1, exif: false,
-  });
+export type PhotoOrigin = 'library' | 'camera';
+export class CameraPermissionError extends Error {}
+
+export async function selectPhotos(origin: PhotoOrigin, multiple: boolean): Promise<Extract<Photo, { uri: string }>[]> {
+  const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], exif: false };
+  if (origin === 'camera') {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) throw new CameraPermissionError();
+  }
+  const result = origin === 'camera'
+    ? await ImagePicker.launchCameraAsync({ ...options, cameraType: ImagePicker.CameraType.back })
+    : await ImagePicker.launchImageLibraryAsync({
+        ...options, allowsMultipleSelection: multiple, selectionLimit: multiple ? 0 : 1,
+      });
   if (result.canceled) return [];
   directory.create({ idempotent: true, intermediates: true });
   const output: Extract<Photo, { uri: string }>[] = [];
@@ -27,15 +37,16 @@ export async function selectPhotos(multiple: boolean): Promise<Extract<Photo, { 
       const temp = new File(saved.uri);
       try {
         const name = temp.name;
-        temp.copy(new File(directory, name));
+        // The cache file must remain available until the native copy finishes.
+        await temp.copy(new File(directory, name));
         output.push({ uri: name });
       } finally {
-        temp.delete();
+        try { temp.delete(); } catch { /* The system can clear the cache later. */ }
       }
     }
     return output;
   } catch (error) {
-    output.forEach(removePhoto);
+    discardPhotos(output);
     throw error;
   }
 }
@@ -44,6 +55,12 @@ export function removePhoto(photo: Photo) {
   if ('sample' in photo) return;
   const file = photoFile(photo);
   if (file.exists) file.delete();
+}
+
+export function discardPhotos(photos: Iterable<Photo>) {
+  for (const photo of photos) {
+    try { removePhoto(photo); } catch { /* Continue cleaning up the other draft photos. */ }
+  }
 }
 
 export function removeAllPhotos() {
