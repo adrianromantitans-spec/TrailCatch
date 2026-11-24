@@ -2,10 +2,11 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { EmailAuthForm } from '../components/EmailAuthForm';
 import { Button, Field, Header, Notice, side, styles, usePalette } from '../components/ui';
 import { t } from '../i18n';
 import { unregisterPush } from '../services/push';
-import { backend, signInWithGoogle, useSession } from '../services/backend';
+import { backend, useSession } from '../services/backend';
 
 export default function Account() {
   const router = useRouter();
@@ -13,8 +14,6 @@ export default function Account() {
   const inset = useSafeAreaInsets();
   const { session, loading } = useSession();
   const userId = session?.user.id;
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [avatar, setAvatar] = useState('');
@@ -82,25 +81,9 @@ export default function Account() {
             await unregisterPush();
             const result = await client.auth.signOut();
             if (result.error) throw result.error;
-            setPassword('');
           })} />
           <Button label={t.removeAccount} danger disabled={busy} onPress={removeAccount} />
-        </> : <>
-          <Field label={t.email} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-          <Field label={t.password} value={password} onChangeText={setPassword} secureTextEntry />
-          <Button label={t.signIn} primary disabled={busy || !email.trim() || !password} onPress={() => void perform(async () => {
-            const result = await client.auth.signInWithPassword({ email: email.trim(), password });
-            if (result.error) throw result.error;
-            setPassword('');
-          })} />
-          <Button label={t.signUp} disabled={busy || !email.trim() || !password} onPress={() => void perform(async () => {
-            const { data, error } = await client.auth.signUp({ email: email.trim(), password });
-            if (error) throw error;
-            setPassword('');
-            if (!data.session) setMessage(t.checkEmail);
-          })} />
-          <Button label={t.signInGoogle} icon="logo-google" disabled={busy} onPress={() => void perform(signInWithGoogle)} />
-        </>}
+        </> : <EmailAuthForm />}
         {!!message && <Text accessibilityLiveRegion="polite" style={{ color: failed ? p.danger : p.ink }}>{message}</Text>}
       </ScrollView>}
   </>;

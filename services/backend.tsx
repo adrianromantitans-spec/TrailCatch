@@ -15,12 +15,15 @@ export const backend = url && key ? createClient(url, key, {
   auth: { storage: Storage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'pkce' },
 }) : null;
 
-const AuthContext = createContext<{ session: Session | null; loading: boolean }>({ session: null, loading: false });
+const AuthContext = createContext<{
+  session: Session | null; loading: boolean; guest: boolean; continueAsGuest: () => void;
+}>({ session: null, loading: false, guest: false, continueAsGuest: () => {} });
 export const useSession = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(!!backend);
+  const [guest, setGuest] = useState(false);
   useEffect(() => {
     if (!backend) return;
     const client = backend;
@@ -40,7 +43,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       client.auth.stopAutoRefresh();
     };
   }, []);
-  return <AuthContext.Provider value={{ session, loading }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ session, loading, guest, continueAsGuest: () => setGuest(true) }}>{children}</AuthContext.Provider>;
 }
 
 export async function signInWithGoogle() {

@@ -16,7 +16,8 @@ export default function Feed() {
   const router = useRouter();
   const db = useSQLiteContext();
   const p = usePalette();
-  const viewer = useSession().session?.user.id;
+  const { session, guest } = useSession();
+  const viewer = session?.user.id;
   const [unread, setUnread] = useState(false);
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -34,7 +35,7 @@ export default function Feed() {
     return () => { active = false; void client.removeChannel(channel); };
   }, [viewer]));
   const tabClearance = useTabClearance();
-  const [mode, setMode] = useState<'local' | 'following' | 'nearby'>(backend ? 'following' : 'local');
+  const [mode, setMode] = useState<'local' | 'following' | 'nearby'>(backend && !guest ? 'following' : 'local');
   const { items, error, refreshing, load, change } = useOutingPages();
 
   async function react(id: string, modify: (item: Outing) => Outing) {

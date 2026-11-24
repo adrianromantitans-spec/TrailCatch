@@ -57,6 +57,7 @@ const es = {
   pushDenied: 'Permite las notificaciones en los ajustes del teléfono.',
   pushUnavailable: 'Las notificaciones push requieren una compilación de la app configurada.',
   pushEnabled: 'Notificaciones activadas.', publish: 'Publicar en el feed', reportAlready: 'Ya reportaste este contenido.',
+  continueAsGuest: 'Continuar sin cuenta',
   account: 'Cuenta', signIn: 'Iniciar sesión', signUp: 'Registrarse', signOut: 'Cerrar sesión',
   signInGoogle: 'Continuar con Google', email: 'Correo electrónico', password: 'Contraseña',
   saveProfile: 'Guardar perfil', displayName: 'Nombre', bio: 'Biografía', avatarUrl: 'Enlace del avatar', accountSaved: 'Perfil actualizado.',
