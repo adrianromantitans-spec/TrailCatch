@@ -1,19 +1,21 @@
 import { Image } from 'expo-image';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Keyboard, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, BackHandler, Keyboard, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapView } from '../components/MapView';
+import { OutingCamera } from '../components/OutingCamera';
 import { Button, Field, Header, IconButton, side, styles, usePalette } from '../components/ui';
 import { putOuting } from '../db/diary';
 import { localDate, OutingType, outingTypes, Photo, Point } from '../db/model';
 import { t } from '../i18n';
-import { CameraPermissionError, discardPhotos, photoSource, removePhoto, selectPhotos } from '../services/photos';
-import type { PhotoOrigin } from '../services/photos';
+import { discardPhotos, photoSource, removePhoto } from '../services/photos';
+import type { PhotoBatch } from '../services/photos';
 
-type Busy = 'save' | 'location' | 'photo';
+type Busy = 'save' | 'location';
+type Capture = 'initial' | 'outing' | { catchKey: number };
 type CatchDraft = { key: number; species: string; size: string; weight: string; bait: string; time: string; photo?: Photo };
 const number = (raw: string) => raw.trim() ? Number(raw.trim().replace(',', '.')) : undefined;
 const invalid = (raw: string) => {
@@ -37,12 +39,15 @@ export default function Create() {
   const [notes, setNotes] = useState('');
   const [point, setPoint] = useState<Point>();
   const [movedTo, setMovedTo] = useState<Point>();
+  const pointChosen = useRef(false);
+  const locationAttempt = useRef(0);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [catches, setCatches] = useState<CatchDraft[]>([]);
   const [route, setRoute] = useState({ distance: '', duration: '', ascent: '' });
   const [busy, setBusy] = useState<Busy>();
   const busyRef = useRef<Busy | undefined>(undefined);
-  const [photoStatus, setPhotoStatus] = useState<{ catchKey?: number; message: string }>();
+  const [capture, setCapture] = useState<Capture | null>('initial');
+  const [locationMessage, setLocationMessage] = useState<string>();
   const [error, setError] = useState<string>();
   const nextCatch = useRef(0);
   const pending = useRef(new Set<Photo>());
@@ -78,63 +83,84 @@ export default function Create() {
     if (alive.current) setBusy(undefined);
   }
 
-  async function pick(origin: PhotoOrigin, catchItem?: CatchDraft) {
-    if (!begin('photo')) return;
-    const catchKey = catchItem?.key;
-    setPhotoStatus({ catchKey, message: t.addingPhotos });
-    Keyboard.dismiss();
+  function choosePoint(value: Point, recenter: boolean) {
+    pointChosen.current = true;
+    setLocationMessage(undefined);
+    setPoint(value);
+    if (recenter) setMovedTo(value);
+  }
+
+  async function locate(automatic = false) {
+    if (automatic && pointChosen.current) return;
+    if (!automatic && !begin('location')) return;
+    const attempt = ++locationAttempt.current;
+    if (!automatic) setLocationMessage(undefined);
     try {
-      const picked = await selectPhotos(origin, !catchItem);
-      if (!alive.current) {
-        discardPhotos(picked);
+      const permission = automatic
+        ? await Location.getForegroundPermissionsAsync()
+        : await Location.requestForegroundPermissionsAsync();
+      if (!permission.granted) {
+        if (!automatic && alive.current) setLocationMessage(t.locationDenied);
         return;
       }
-      setPhotoStatus(undefined);
-      if (!picked.length) return;
-      picked.forEach((item) => pending.current.add(item));
-      if (catchItem) {
-        if (catchItem.photo) {
-          discardPhotos([catchItem.photo]);
-          pending.current.delete(catchItem.photo);
-        }
-        updateCatch(catchItem.key, { photo: picked[0] });
-      } else {
-        setPhotos((old) => [...old, ...picked]);
-      }
-    } catch (error) {
-      if (!alive.current) return;
-      if (error instanceof CameraPermissionError) {
-        setPhotoStatus(undefined);
-        Alert.alert(t.cameraDenied, undefined, [
-          { text: t.cancel, style: 'cancel' },
-          { text: t.settings, onPress: () => void Linking.openSettings().catch(() => Alert.alert(t.cameraDenied)) },
-        ]);
-      } else {
-        setPhotoStatus({ catchKey, message: origin === 'camera' ? t.cameraError : t.photosError });
-      }
+      const position = await Location.getLastKnownPositionAsync({ maxAge: 120000, requiredAccuracy: 100 })
+        ?? await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      if (!alive.current || attempt !== locationAttempt.current || (automatic && pointChosen.current)) return;
+      const { latitude, longitude } = position.coords;
+      choosePoint({ latitude, longitude }, true);
+    } catch {
+      if (!automatic && alive.current && attempt === locationAttempt.current) setLocationMessage(t.locationError);
     } finally {
-      finish();
+      if (!automatic) finish();
     }
   }
 
-  async function locate() {
-    if (!begin('location')) return;
-    setError(undefined);
-    try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (!permission.granted) {
-        setError(t.locationDenied);
-        return;
-      }
-      const { coords: { latitude, longitude } } = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const value = { latitude, longitude };
-      setPoint(value);
-      setMovedTo(value);
-    } catch {
-      setError(t.locationError);
-    } finally {
-      finish();
+  const closeCamera = useCallback(() => {
+    if (capture === 'initial') router.back();
+    else setCapture(null);
+  }, [capture, router]);
+
+  useFocusEffect(useCallback(() => {
+    if (capture === null || capture === 'initial') return;
+    const listener = BackHandler.addEventListener('hardwareBackPress', () => {
+      closeCamera();
+      return true;
+    });
+    return () => listener.remove();
+  }, [capture, closeCamera]));
+
+  function openCamera(target: Capture) {
+    if (busyRef.current) return;
+    Keyboard.dismiss();
+    setCapture(target);
+  }
+
+  function acceptPhotos(batch: PhotoBatch) {
+    if (!capture || !alive.current) {
+      discardPhotos(batch.photos);
+      return;
     }
+    if (typeof capture === 'object') {
+      const draft = catches.find(({ key }) => key === capture.catchKey);
+      const [photo] = batch.photos;
+      if (draft && photo) {
+        if (draft.photo) {
+          discardPhotos([draft.photo]);
+          pending.current.delete(draft.photo);
+        }
+        pending.current.add(photo);
+        updateCatch(draft.key, { photo });
+        discardPhotos(batch.photos.slice(1));
+      } else discardPhotos(batch.photos);
+    } else {
+      batch.photos.forEach((photo) => pending.current.add(photo));
+      setPhotos((old) => [...old, ...batch.photos]);
+      if (!pointChosen.current) {
+        if (batch.point) choosePoint(batch.point, true);
+        else if (capture === 'initial') void locate(true);
+      }
+    }
+    setCapture(null);
   }
 
   async function save() {
@@ -193,31 +219,27 @@ export default function Create() {
     </View>;
   }
 
-  function photoControls(catchItem?: CatchDraft) {
-    const status = photoStatus?.catchKey === catchItem?.key ? photoStatus?.message : undefined;
-    return <>
-      <View style={styles.columns}>
-        <Button label={t.gallery} icon="images-outline" stretch stacked disabled={!!busy} onPress={() => void pick('library', catchItem)} />
-        <Button label={t.camera} icon="camera-outline" stretch stacked disabled={!!busy} onPress={() => void pick('camera', catchItem)} />
-      </View>
-      {status && <Text accessibilityLiveRegion="polite" style={{ color: busy === 'photo' ? p.muted : p.danger }}>{status}</Text>}
-    </>;
+  if (capture !== null) {
+    const catchTarget = typeof capture === 'object' ? catches.find(({ key }) => key === capture.catchKey) : undefined;
+    return <OutingCamera onClose={closeCamera} onPhotos={acceptPhotos} multiple={typeof capture === 'string'}
+      readLocation={typeof capture === 'string' && !pointChosen.current}
+      preview={typeof capture === 'object' ? catchTarget?.photo : photos[photos.length - 1]} />;
   }
 
-  return <>
+  return <KeyboardAvoidingView behavior="padding" style={[styles.screen, { backgroundColor: p.bg }]}>
     <Header title={t.create} back={() => router.back()} />
-    <ScrollView className="flex-1" keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets
+    <ScrollView className="flex-1" keyboardShouldPersistTaps="handled"
       contentInsetAdjustmentBehavior="never"
-      contentContainerStyle={[styles.content, { gap: 24, paddingBottom: inset.bottom + side }]}>
+      contentContainerStyle={[styles.content, { gap: 24 }]}>
       <View style={formStyles.group}>
         <Text style={[styles.section, { color: p.ink }]}>{t.photos}</Text>
-        {photoControls()}
         {photos.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           {photos.map((photo) => thumbnail(photo, () => {
             remove(photo);
             setPhotos((old) => old.filter((item) => item !== photo));
           }))}
         </ScrollView>}
+        <Button label={t.addMorePhotos} icon="add" disabled={!!busy} onPress={() => openCamera('outing')} />
       </View>
       <View style={formStyles.group}>
         <View accessibilityRole="radiogroup" accessibilityLabel={t.type}
@@ -245,8 +267,9 @@ export default function Create() {
           <Text style={[styles.section, { color: p.ink }]}>{t.location}</Text>
           <Text style={{ color: p.muted }}>{t.pickPoint}</Text>
         </View>
-        <MapView point={point} movedTo={movedTo} onPick={setPoint} height={200} />
+        <MapView point={point} movedTo={movedTo} onPick={(value) => { locationAttempt.current++; choosePoint(value, false); }} height={200} />
         <Button label={busy === 'location' ? t.loading : t.myLocation} icon="locate-outline" singleLine disabled={!!busy} onPress={() => void locate()} />
+        {locationMessage && <Text accessibilityLiveRegion="polite" style={{ color: p.danger }}>{locationMessage}</Text>}
       </View>
       {type !== 'hike' && <View style={formStyles.group}>
         <Text style={[styles.section, { color: p.ink }]}>{t.catches}</Text>
@@ -255,8 +278,9 @@ export default function Create() {
             label={t[field]} value={item[field]} onChangeText={(value) => updateCatch(item.key, { [field]: value })}
             keyboardType={field === 'size' || field === 'weight' ? 'decimal-pad' : 'default'} />)}
           <Text style={{ color: p.muted, fontWeight: '600' }}>{t.photo}</Text>
-          {photoControls(item)}
           {item.photo && thumbnail(item.photo, () => { remove(item.photo!); updateCatch(item.key, { photo: undefined }); })}
+          <Button label={item.photo ? t.changeCatchPhoto : t.addCatchPhoto} icon="add"
+            disabled={!!busy} onPress={() => openCamera({ catchKey: item.key })} />
           <Button label={t.removeCatch} danger disabled={!!busy} onPress={() => {
             if (item.photo) {
               discardPhotos([item.photo]);
@@ -275,15 +299,19 @@ export default function Create() {
         {(['distance', 'duration', 'ascent'] as const).map((field) => <Field key={field} label={t[field]}
           value={route[field]} keyboardType="decimal-pad" onChangeText={(value) => setRoute((old) => ({ ...old, [field]: value }))} />)}
       </View>}
+    </ScrollView>
+    <View style={[formStyles.footer, { paddingBottom: Math.max(inset.bottom, 12),
+      backgroundColor: p.bg, borderColor: p.line }]}>
       {error && <Text accessibilityLiveRegion="polite" style={{ color: p.danger }}>{error}</Text>}
       <Button label={busy === 'save' ? t.saving : t.save} primary disabled={!!busy} onPress={() => void save()} />
-    </ScrollView>
-  </>;
+    </View>
+  </KeyboardAvoidingView>;
 }
 
 
 const formStyles = StyleSheet.create({
   group: { gap: 16 },
+  footer: { paddingTop: 12, paddingHorizontal: side, borderTopWidth: StyleSheet.hairlineWidth, gap: 8 },
   segmented: { flexDirection: 'row', padding: 4, gap: 4, borderWidth: 1, borderRadius: 14 },
   segment: { flex: 1, minWidth: 0, minHeight: 44, borderRadius: 10, paddingHorizontal: 4, paddingVertical: 8,
     alignItems: 'center', justifyContent: 'center' },

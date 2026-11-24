@@ -29,7 +29,7 @@ export default function RootLayout() {
         <DatabaseBoundary>
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: p.bg }, animation: 'fade_from_bottom' }}>
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="create" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="create" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
           </Stack>
         </DatabaseBoundary>
       </ThemeProvider>

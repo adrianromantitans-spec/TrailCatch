@@ -44,19 +44,19 @@ export function Header({ title, back, children }: { title: string; back?: () => 
   );
 }
 
-export function Button({ label, onPress, icon, primary, danger, selected, disabled, stretch, stacked, singleLine }: {
+export function Button({ label, onPress, icon, primary, danger, selected, disabled, stretch, singleLine }: {
   label: string; onPress: () => void; icon?: IconName; primary?: boolean; danger?: boolean;
-  selected?: boolean; disabled?: boolean; stretch?: boolean; stacked?: boolean; singleLine?: boolean;
+  selected?: boolean; disabled?: boolean; stretch?: boolean; singleLine?: boolean;
 }) {
   const p = usePalette();
   const color = primary ? (p.dark ? '#12251B' : '#FFFFFF') : danger ? p.danger : selected ? p.accent : p.ink;
   return (
     <Pressable accessibilityRole="button" accessibilityState={{ selected, disabled }} disabled={disabled}
-      onPress={onPress} style={({ pressed }) => [styles.button, stretch && styles.stretchButton, stacked && styles.stackedButton, {
+      onPress={onPress} style={({ pressed }) => [styles.button, stretch && styles.stretchButton, {
         backgroundColor: primary ? p.accent : selected ? p.soft : p.surface,
         borderColor: selected ? p.accent : p.line, opacity: disabled || pressed ? 0.6 : 1,
       }]}>
-      {icon && <Ionicons name={icon} size={stacked ? 24 : 18} color={color} />}
+      {icon && <Ionicons name={icon} size={18} color={color} />}
       <Text numberOfLines={singleLine ? 1 : undefined} adjustsFontSizeToFit={singleLine}
         minimumFontScale={singleLine ? 0.8 : undefined} style={{ color, fontWeight: '600', flexShrink: 1, textAlign: 'center' }}>{label}</Text>
     </Pressable>
@@ -100,7 +100,6 @@ export const styles = StyleSheet.create({
   headerText: { flex: 1, fontWeight: '800', fontSize: 23, letterSpacing: -0.6 },
   icon: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   button: { minHeight: 44, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
-  stackedButton: { minHeight: 84, flexDirection: 'column', gap: 8, paddingVertical: 12 },
   stretchButton: { flex: 1, minWidth: 0 },
   input: { minHeight: 48, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12, fontSize: 16 },
   notice: { padding: 24, minHeight: 120, alignItems: 'center', justifyContent: 'center', gap: 12 },
