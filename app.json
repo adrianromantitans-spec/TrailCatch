@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "TrailCatch",
+    "slug": "trailcatch",
+    "scheme": "trailcatch",
+    "icon": "./assets/icon.png",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "com.tunombre.trailcatch",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.tunombre.trailcatch",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#183C31"
+      },
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "TrailCatch usa tu ubicación para marcar el lugar de la salida."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "TrailCatch permite elegir fotos para tu diario.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      "expo-status-bar",
+      "expo-image",
+      "expo-sharing"
+    ]
+  }
+}
