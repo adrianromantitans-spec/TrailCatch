@@ -4,7 +4,7 @@ export type Locale = (typeof locales)[number];
 const es = {
   app: 'TrailCatch', home: 'Inicio', map: 'Mapa', explore: 'Explorar', profile: 'Perfil',
   create: 'Nueva salida', search: 'Buscar', notifications: 'Notificaciones', noNotifications: 'Aún no hay notificaciones',
-  type: 'Tipo', fishing: 'Pesca', hike: 'Ruta', both: 'Pesca y ruta',
+  type: 'Tipo', category: 'Categoría', fishing: 'Pesca', hike: 'Ruta', both: 'Pesca y ruta',
   title: 'Título', date: 'Fecha', dateHint: 'AAAA-MM-DD', notes: 'Notas', location: 'Ubicación',
   pickPoint: 'Toca el mapa para marcar el lugar', myLocation: 'Usar mi posición',
   locationDenied: 'Permite el acceso a la ubicación para marcar tu posición.',
@@ -20,7 +20,7 @@ const es = {
   save: 'Guardar salida', saving: 'Guardando…', required: 'Escribe un título, una fecha válida y marca una ubicación.',
   invalidNumbers: 'Revisa los valores numéricos y las horas de captura.',
   saveError: 'No se pudo guardar la salida.', loadError: 'No se pudieron cargar los datos.',
-  retry: 'Reintentar', empty: 'Aún no hay salidas', noResults: 'No hay resultados', loading: 'Cargando…',
+  retry: 'Reintentar', empty: 'Aún no hay salidas', noResults: 'No hay resultados', noCategoryResults: 'No hay salidas en esta categoría', loading: 'Cargando…',
   like: 'Me gusta', unlike: 'Quitar Me gusta', comment: 'Comentar', comments: 'Comentarios',
   commentPlaceholder: 'Añade un comentario', send: 'Enviar', noComments: 'Aún no hay comentarios',
   bookmark: 'Guardar publicación', unbookmark: 'Quitar de guardados', share: 'Compartir',

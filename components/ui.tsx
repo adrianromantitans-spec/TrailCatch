@@ -5,9 +5,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../i18n';
 
 export type IconName = keyof typeof Ionicons.glyphMap;
+export const brandGreen = '#255A46';
+export const onBrand = '#FFFFFF';
+
 const light = {
   dark: false, bg: '#F9FAF7', surface: '#FFFFFF', ink: '#182723', muted: '#526762',
-  line: '#DFE8E2', accent: '#255A46', water: '#28687C', soft: '#E7F1EB', danger: '#9E383D',
+  line: '#DFE8E2', accent: brandGreen, water: '#28687C', soft: '#E7F1EB', danger: '#9E383D',
   glass: '#FFFFFFC7', glassSolid: '#FAFCF7F5',
 };
 const dark = {
@@ -49,12 +52,15 @@ export function Button({ label, onPress, icon, primary, danger, selected, disabl
   selected?: boolean; disabled?: boolean; stretch?: boolean; singleLine?: boolean;
 }) {
   const p = usePalette();
-  const color = primary ? (p.dark ? '#12251B' : '#FFFFFF') : danger ? p.danger : selected ? p.accent : p.ink;
+  const color = primary ? onBrand : danger ? p.danger : selected ? p.accent : p.ink;
   return (
     <Pressable accessibilityRole="button" accessibilityState={{ selected, disabled }} disabled={disabled}
       onPress={onPress} style={({ pressed }) => [styles.button, stretch && styles.stretchButton, {
-        backgroundColor: primary ? p.accent : selected ? p.soft : p.surface,
-        borderColor: selected ? p.accent : p.line, opacity: disabled || pressed ? 0.6 : 1,
+        backgroundColor: primary
+          ? disabled ? '#465F55' : pressed ? '#1C4938' : brandGreen
+          : selected ? p.soft : p.surface,
+        borderColor: primary ? brandGreen : selected ? p.accent : p.line,
+        opacity: !primary && (disabled || pressed) ? 0.6 : 1,
       }]}>
       {icon && <Ionicons name={icon} size={18} color={color} />}
       <Text numberOfLines={singleLine ? 1 : undefined} adjustsFontSizeToFit={singleLine}
@@ -67,7 +73,7 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
   const p = usePalette();
   return (
     <View style={{ gap: 8 }}>
-      <Text style={{ color: p.muted, fontWeight: '600' }}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: p.muted }]}>{label}</Text>
       <TextInput accessibilityLabel={label} placeholderTextColor={p.muted} {...props}
         style={[styles.input, { color: p.ink, borderColor: p.line, backgroundColor: p.surface },
           props.multiline && { minHeight: 90, textAlignVertical: 'top' }, props.style]} />
@@ -101,6 +107,7 @@ export const styles = StyleSheet.create({
   icon: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   button: { minHeight: 44, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
   stretchButton: { flex: 1, minWidth: 0 },
+  fieldLabel: { fontWeight: '600' },
   input: { minHeight: 48, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12, fontSize: 16 },
   notice: { padding: 24, minHeight: 120, alignItems: 'center', justifyContent: 'center', gap: 12 },
   avatar: { alignItems: 'center', justifyContent: 'center' },

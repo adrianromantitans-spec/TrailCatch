@@ -23,8 +23,8 @@ export function useDiary() {
 export function useOutingPages(filter: Parameters<typeof pageOutings>[2] = {}) {
   const db = useSQLiteContext();
   const { query, type, saved } = filter;
-  const [items, setItems] = useState<Outing[]>();
-  const [error, setError] = useState(false);
+  const filterKey = JSON.stringify([query, type, saved]);
+  const [result, setResult] = useState<{ key: string; items?: Outing[]; error: boolean }>();
   const [refreshing, setRefreshing] = useState(false);
   const state = useRef({ version: 0, next: 0, more: true, busy: false });
 
@@ -40,21 +40,28 @@ export function useOutingPages(filter: Parameters<typeof pageOutings>[2] = {}) {
       if (current.version !== version) return;
       current.next = page + 1;
       current.more = result.more;
-      setItems((old) => reset ? result.items : [...(old ?? []), ...result.items]);
-      setError(false);
+      setResult((old) => ({
+        key: filterKey, error: false,
+        items: reset ? result.items : [...(old?.key === filterKey ? old.items ?? [] : []), ...result.items],
+      }));
     } catch {
-      if (current.version === version) setError(true);
+      if (current.version === version) {
+        setResult((old) => ({
+          key: filterKey, error: true, items: old?.key === filterKey ? old.items : undefined,
+        }));
+      }
     } finally {
       if (current.version === version) {
         current.busy = false;
         setRefreshing(false);
       }
     }
-  }, [db, query, type, saved]);
+  }, [db, filterKey, query, type, saved]);
   useFocusEffect(useCallback(() => { void load(true); }, [load]));
   useEffect(() => () => { state.current.version++; }, []);
   const change = useCallback((outing: Outing) => {
-    setItems((old) => old?.map((item) => item.id === outing.id ? outing : item));
+    setResult((old) => old && { ...old, items: old.items?.map((item) => item.id === outing.id ? outing : item) });
   }, []);
-  return { items, error, refreshing, load, change };
+  const visible = result?.key === filterKey ? result : undefined;
+  return { items: visible?.items, error: visible?.error ?? false, refreshing, load, change };
 }

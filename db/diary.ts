@@ -64,7 +64,7 @@ export async function allOutings(db: SQLiteDatabase) {
 export async function pageOutings(db: SQLiteDatabase, page: number, filter: Filter = {}) {
   const rows = await db.getAllAsync<Row>(
     `SELECT data FROM outings WHERE instr(search_text, ?) > 0
-     AND (? IS NULL OR type = ? OR type = 'both')
+     AND (? IS NULL OR type = ?)
      AND (? = 0 OR json_extract(data, '$.saved') = 1)
      ORDER BY date DESC, id DESC LIMIT ? OFFSET ?`,
     normalize(filter.query?.trim() ?? ''), filter.type ?? null, filter.type ?? null, Number(!!filter.saved),

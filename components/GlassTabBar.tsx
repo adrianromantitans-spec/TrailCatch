@@ -8,7 +8,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../i18n';
-import { IconName, side, usePalette } from './ui';
+import { brandGreen, IconName, onBrand, side, usePalette } from './ui';
 
 const barHeight = 68;
 const barRadius = barHeight / 2;
@@ -108,8 +108,8 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
               onCreate();
             }}>
-            <Animated.View style={[styles.plus, { backgroundColor: p.accent }, plus]}>
-              <Ionicons name="add" size={29} color={p.dark ? '#12251B' : '#FFFFFF'} />
+            <Animated.View style={[styles.plus, { backgroundColor: brandGreen }, plus]}>
+              <Ionicons name="add" size={29} color={onBrand} />
             </Animated.View>
           </Pressable>
           {tab('explore')}

@@ -3,13 +3,14 @@ import * as Location from 'expo-location';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, BackHandler, Keyboard, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, BackHandler, Keyboard, KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CategoryPicker } from '../components/CategoryPicker';
 import { MapView } from '../components/MapView';
 import { OutingCamera } from '../components/OutingCamera';
 import { Button, Field, Header, IconButton, side, styles, usePalette } from '../components/ui';
 import { putOuting } from '../db/diary';
-import { localDate, OutingType, outingTypes, Photo, Point } from '../db/model';
+import { localDate, OutingType, Photo, Point } from '../db/model';
 import { t } from '../i18n';
 import { discardPhotos, photoSource, removePhoto } from '../services/photos';
 import type { PhotoBatch } from '../services/photos';
@@ -242,22 +243,7 @@ export default function Create() {
         <Button label={t.addMorePhotos} icon="add" disabled={!!busy} onPress={() => openCamera('outing')} />
       </View>
       <View style={formStyles.group}>
-        <View accessibilityRole="radiogroup" accessibilityLabel={t.type}
-          style={[formStyles.segmented, { backgroundColor: p.soft, borderColor: p.line }]}>
-          {outingTypes.map((item) => {
-            const selected = type === item;
-            const foreground = selected ? (p.dark ? '#12251B' : '#FFFFFF') : p.ink;
-            return (
-              <Pressable key={item} accessibilityRole="radio" accessibilityState={{ checked: selected, disabled: !!busy }}
-                disabled={!!busy} onPress={() => setType(item)}
-                style={({ pressed }) => [formStyles.segment, {
-                  backgroundColor: selected ? p.accent : 'transparent', opacity: pressed ? 0.7 : 1,
-                }]}>
-                <Text style={[formStyles.segmentLabel, { color: foreground }]}>{t[item]}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <CategoryPicker value={type} onChange={setType} disabled={!!busy} />
         <Field label={t.title} value={title} onChangeText={setTitle} />
         <Field label={t.date} value={date} onChangeText={setDate} placeholder={t.dateHint} autoCapitalize="none" maxLength={10} />
         <Field label={t.notes} value={notes} onChangeText={setNotes} multiline />
@@ -312,9 +298,5 @@ export default function Create() {
 const formStyles = StyleSheet.create({
   group: { gap: 16 },
   footer: { paddingTop: 12, paddingHorizontal: side, borderTopWidth: StyleSheet.hairlineWidth, gap: 8 },
-  segmented: { flexDirection: 'row', padding: 4, gap: 4, borderWidth: 1, borderRadius: 14 },
-  segment: { flex: 1, minWidth: 0, minHeight: 44, borderRadius: 10, paddingHorizontal: 4, paddingVertical: 8,
-    alignItems: 'center', justifyContent: 'center' },
-  segmentLabel: { textAlign: 'center', fontWeight: '700', fontSize: 13 },
   catchCard: { gap: 16, padding: 16, borderRadius: 16, borderWidth: 1 },
 });
