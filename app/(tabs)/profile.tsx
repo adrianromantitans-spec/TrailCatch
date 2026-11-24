@@ -313,7 +313,7 @@ export default function Profile() {
           return <Link href={{ pathname: '/outing/[id]', params: { id: item.id } }} asChild>
             <Pressable accessibilityRole="button"
               accessibilityLabel={[item.title, t[item.type], date, item.hasCatch && catchLabel].filter(Boolean).join(', ')}
-              style={[profileStyles.tile, { width: tileWidth, backgroundColor: p.soft }]}>
+              style={StyleSheet.flatten([profileStyles.tile, { width: tileWidth, backgroundColor: p.soft }])}>
               {item.photo ? <Image source={photoSource(item.photo)} style={StyleSheet.absoluteFill}
                 recyclingKey={item.key} cachePolicy="memory" transition={140} />
                 : <Ionicons name="image-outline" size={24} color={p.accent} />}
