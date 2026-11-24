@@ -1,9 +1,10 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, View } from 'react-native';
+import { Alert, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { FeedCard, FeedSkeleton } from '../../components/FeedCard';
-import { TabContent, useTabClearance } from '../../components/GlassTabBar';
+import { TabContent, useHomeTabScroll, useTabClearance } from '../../components/GlassTabBar';
 import { SocialFeed } from '../../components/SocialFeed';
 import { Button, Header, IconButton, Notice, side, styles, usePalette } from '../../components/ui';
 import { updateOuting } from '../../db/diary';
@@ -36,6 +37,13 @@ export default function Feed() {
   }, [viewer]));
   const tabClearance = useTabClearance();
   const [mode, setMode] = useState<'local' | 'following' | 'nearby'>(backend && !guest ? 'following' : 'local');
+  const { onScroll, compact } = useHomeTabScroll();
+  useFocusEffect(useCallback(() => () => compact?.set(false), [compact]));
+  const selectMode = (next: typeof mode) => {
+    if (next === mode) return;
+    compact?.set(false);
+    setMode(next);
+  };
   const { items, error, refreshing, load, change } = useOutingPages();
 
   async function react(id: string, modify: (item: Outing) => Outing) {
@@ -57,12 +65,12 @@ export default function Feed() {
       </View>
     </Header>
     {backend && <View style={[styles.columns, { paddingHorizontal: side, paddingVertical: 8 }]}>
-      <Button stretch label={t.followingFeed} selected={mode === 'following'} onPress={() => setMode('following')} />
-      <Button stretch label={t.nearbyFeed} selected={mode === 'nearby'} onPress={() => setMode('nearby')} />
-      <Button stretch label={t.diary} selected={mode === 'local'} onPress={() => setMode('local')} />
+      <Button stretch label={t.followingFeed} selected={mode === 'following'} onPress={() => selectMode('following')} />
+      <Button stretch label={t.nearbyFeed} selected={mode === 'nearby'} onPress={() => selectMode('nearby')} />
+      <Button stretch label={t.diary} selected={mode === 'local'} onPress={() => selectMode('local')} />
     </View>}
-    {mode !== 'local' ? <SocialFeed key={mode} mode={mode} bottom={tabClearance} /> : !items && !error ? <FeedSkeleton /> :
-      <FlatList keyExtractor={(item) => item.id} data={items ?? []}
+    {mode !== 'local' ? <SocialFeed key={mode} mode={mode} bottom={tabClearance} onScroll={onScroll} /> : !items && !error ? <FeedSkeleton /> :
+      <Animated.FlatList onScroll={onScroll} scrollEventThrottle={16} keyExtractor={(item) => item.id} data={items ?? []}
         style={{ flex: 1 }} contentInsetAdjustmentBehavior="never"
         contentContainerStyle={{ paddingBottom: tabClearance }}
         refreshing={refreshing} onRefresh={() => void load(true)} onEndReached={() => void load(false)}

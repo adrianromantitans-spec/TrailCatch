@@ -1,7 +1,9 @@
 import * as Location from 'expo-location';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { Alert, FlatList, View } from 'react-native';
+import { Alert, View } from 'react-native';
+import type { FlatListProps } from 'react-native';
+import Animated from 'react-native-reanimated';
 import type { Point } from '../db/model';
 import { t } from '../i18n';
 import { useSession } from '../services/backend';
@@ -11,7 +13,9 @@ import { FeedSkeleton } from './FeedCard';
 import { SocialPostCard } from './SocialPostCard';
 import { Button, Notice, styles } from './ui';
 
-export function SocialFeed({ mode, bottom }: { mode: FeedMode; bottom: number }) {
+export function SocialFeed({ mode, bottom, onScroll }: {
+  mode: FeedMode; bottom: number; onScroll?: FlatListProps<SocialPost>['onScroll'];
+}) {
   const router = useRouter();
   const { session } = useSession();
   const viewer = session?.user.id;
@@ -90,7 +94,7 @@ export function SocialFeed({ mode, bottom }: { mode: FeedMode; bottom: number })
     <Button label={locating ? t.loading : t.myLocation} disabled={locating} onPress={() => void locate()} icon="locate-outline" />
   </View>;
 
-  return !posts && !failed ? <FeedSkeleton /> : <FlatList style={styles.screen} data={posts ?? []} keyExtractor={(item) => item.id}
+  return !posts && !failed ? <FeedSkeleton /> : <Animated.FlatList onScroll={onScroll} scrollEventThrottle={16} style={styles.screen} data={posts ?? []} keyExtractor={(item) => item.id}
     windowSize={5} initialNumToRender={3} maxToRenderPerBatch={5}
     contentContainerStyle={{ paddingBottom: bottom }}
     refreshing={refreshing} onRefresh={() => void load(true)} onEndReached={() => void load(false)}
