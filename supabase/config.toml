@@ -1,0 +1,10 @@
+project_id = "trailcatch"
+
+[functions.delete-account]
+verify_jwt = false
+
+[functions.report-email]
+verify_jwt = false
+
+[functions.notify-push]
+verify_jwt = false

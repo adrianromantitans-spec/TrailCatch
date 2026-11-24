@@ -25,8 +25,6 @@ export function Conditions({ point, date }: { point: Point; date: string }) {
       controller.abort();
       setError(true);
     }, 12000);
-    setResult(undefined);
-    setError(false);
     void getWeather({ latitude, longitude }, date, controller.signal)
       .then((data) => { if (!controller.signal.aborted) setResult(data); })
       .catch(() => { if (!controller.signal.aborted) setError(true); })
@@ -36,6 +34,12 @@ export function Conditions({ point, date }: { point: Point; date: string }) {
       controller.abort();
     };
   }, [attempt, date, latitude, longitude]);
+
+  function requestWeather() {
+    setResult(undefined);
+    setError(false);
+    setAttempt((previous) => previous + 1);
+  }
 
   const rows = result ? [
     [t.temperature, metric(result.temperature, t.units.temp)],
@@ -49,8 +53,8 @@ export function Conditions({ point, date }: { point: Point; date: string }) {
   return <View style={{ gap: 8 }}>
     <Text style={[styles.section, { color: p.ink }]}>{t.weather}</Text>
     <Text style={{ color: p.muted }}>{t.estimatedMoon} · {t.moonPhases[moonPhase(date)]}</Text>
-    {!attempt ? <Button label={t.weather} icon="partly-sunny-outline" onPress={() => setAttempt(1)} />
-      : error ? <Notice message={t.weatherError} retry={() => setAttempt(attempt + 1)} />
+    {!attempt ? <Button label={t.weather} icon="partly-sunny-outline" onPress={requestWeather} />
+      : error ? <Notice message={t.weatherError} retry={requestWeather} />
       : result === undefined ? <Notice message={t.loading} loading />
       : result === null ? <Notice message={t.unavailable} />
       : rows.map(([label, value]) => <View key={label} style={styles.metricRow}>

@@ -4,6 +4,7 @@ import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { Component, ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AuthProvider } from '../services/backend';
 import { initialize } from '../db/diary';
 import { Notice, usePalette } from '../components/ui';
 import { t } from '../i18n';
@@ -26,12 +27,14 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: p.bg }}>
       <ThemeProvider value={p.dark ? DarkTheme : DefaultTheme}>
         <StatusBar style={p.dark ? 'light' : 'dark'} />
+        <AuthProvider>
         <DatabaseBoundary>
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: p.bg }, animation: 'fade_from_bottom' }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="create" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
           </Stack>
         </DatabaseBoundary>
+        </AuthProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

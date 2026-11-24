@@ -30,6 +30,19 @@ const validDate = (date: string) => {
   return Number.isFinite(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === date;
 };
 
+function OutingThumbnail({ photo, disabled, onRemove }: { photo: Photo; disabled: boolean; onRemove: () => void }) {
+  const p = usePalette();
+  return <View>
+    <Image source={photoSource(photo)} style={{ width: 88, height: 88, borderRadius: 12 }} />
+    <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: p.glassSolid, borderRadius: 22 }}>
+      <IconButton name="close" label={t.removePhoto} onPress={() => {
+        if (disabled) return;
+        try { onRemove(); } catch { Alert.alert(t.deleteError); }
+      }} />
+    </View>
+  </View>;
+}
+
 export default function Create() {
   const p = usePalette();
   const inset = useSafeAreaInsets();
@@ -209,22 +222,10 @@ export default function Create() {
     if (alive.current) router.back();
   }
 
-  function thumbnail(photo: Photo, onRemove: () => void) {
-    return <View key={'uri' in photo ? photo.uri : photo.sample}>
-      <Image source={photoSource(photo)} style={{ width: 88, height: 88, borderRadius: 12 }} />
-      <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: p.glassSolid, borderRadius: 22 }}>
-        <IconButton name="close" label={t.removePhoto} onPress={() => {
-          if (busy) return;
-          try { onRemove(); } catch { Alert.alert(t.deleteError); }
-        }} />
-      </View>
-    </View>;
-  }
-
   if (capture !== null) {
     const catchTarget = typeof capture === 'object' ? catches.find(({ key }) => key === capture.catchKey) : undefined;
     return <OutingCamera onClose={closeCamera} onPhotos={acceptPhotos} multiple={typeof capture === 'string'}
-      readLocation={typeof capture === 'string' && !pointChosen.current}
+      readLocation={typeof capture === 'string' && !point}
       preview={typeof capture === 'object' ? catchTarget?.photo : photos[photos.length - 1]} />;
   }
 
@@ -236,10 +237,11 @@ export default function Create() {
       <View style={formStyles.group}>
         <Text style={[styles.section, { color: p.ink }]}>{t.photos}</Text>
         {photos.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          {photos.map((photo) => thumbnail(photo, () => {
-            remove(photo);
-            setPhotos((old) => old.filter((item) => item !== photo));
-          }))}
+          {photos.map((photo) => <OutingThumbnail key={'uri' in photo ? photo.uri : photo.sample} photo={photo}
+            disabled={!!busy} onRemove={() => {
+              remove(photo);
+              setPhotos((old) => old.filter((item) => item !== photo));
+            }} />)}
         </ScrollView>}
         <Button label={t.addMorePhotos} icon="add" dashed singleLine disabled={!!busy} onPress={() => openCamera('outing')} />
       </View>
@@ -265,7 +267,8 @@ export default function Create() {
             label={t[field]} value={item[field]} onChangeText={(value) => updateCatch(item.key, { [field]: value })}
             keyboardType={field === 'size' || field === 'weight' ? 'decimal-pad' : 'default'} />)}
           <Text style={{ color: p.muted, fontWeight: '600' }}>{t.photo}</Text>
-          {item.photo && thumbnail(item.photo, () => { remove(item.photo!); updateCatch(item.key, { photo: undefined }); })}
+          {item.photo && <OutingThumbnail photo={item.photo} disabled={!!busy}
+            onRemove={() => { remove(item.photo!); updateCatch(item.key, { photo: undefined }); }} />}
           <Button label={item.photo ? t.changeCatchPhoto : t.addCatchPhoto} icon="add"
             disabled={!!busy} onPress={() => openCamera({ catchKey: item.key })} />
           <Button label={t.removeCatch} danger disabled={!!busy} onPress={() => {

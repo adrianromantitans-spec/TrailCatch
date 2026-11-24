@@ -12,6 +12,7 @@ import { allOutings, deleteOutings } from '../../db/diary';
 import { PAGE_SIZE, photoList } from '../../db/model';
 import { useDiary } from '../../db/useDiary';
 import { t } from '../../i18n';
+import { useSession } from '../../services/backend';
 import { exportPhotos, photoSource, removeAllPhotos } from '../../services/photos';
 
 const gridGap = 8;
@@ -19,6 +20,7 @@ const exportsDirectory = new Directory(Paths.cache, 'trailcatch-exports');
 
 export default function Profile() {
   const router = useRouter();
+  const { session } = useSession();
   const p = usePalette();
   const tabClearance = useTabClearance();
   const db = useSQLiteContext();
@@ -103,6 +105,8 @@ export default function Profile() {
         {menuItem(t.deleteSamples, 'trash-outline', () => confirm(true), false, busy || !items?.some((item) => item.sample))}
         {menuItem(t.deleteAll, 'alert-circle-outline', () => confirm(false), true, busy)}
         <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: p.line }} />
+        {session && menuItem(t.saved, 'bookmark-outline', () => router.push('/saved'))}
+        {menuItem(t.account, 'person-circle-outline', () => router.push('/account'))}
         {menuItem(t.privacy, 'shield-checkmark-outline', () => router.push('/privacy'))}
         {menuItem(t.terms, 'document-text-outline', () => router.push('/terms'))}
       </View>}
@@ -124,6 +128,10 @@ export default function Profile() {
               <Text style={[profileStyles.statLabel, { color: p.muted }]}>{label}</Text>
             </View>)}
           </View>
+          {session && <View style={styles.columns}>
+            <Button stretch label={t.posts} onPress={() => router.push({ pathname: '/user/[id]', params: { id: session.user.id } })} />
+            <Button stretch label={t.saved} icon="bookmark-outline" onPress={() => router.push('/saved')} />
+          </View>}
           <View style={profileStyles.actions}>
             <Pressable cssInterop={false} accessibilityRole="button" onPress={() => router.push('/stats')}
               style={({ pressed }) => [profileStyles.annual, { backgroundColor: pressed ? p.soft : 'transparent' }]}>

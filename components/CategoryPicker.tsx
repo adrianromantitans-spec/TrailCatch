@@ -40,10 +40,10 @@ function CategoryCard({ option, selected, width, disabled, onPress }: {
   const motion = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   useEffect(() => {
     if (!selected) return;
-    scale.value = withSequence(
+    scale.set(withSequence(
       withTiming(0.97, { duration: 85, reduceMotion: ReduceMotion.System }),
       withTiming(1, { duration: 145, reduceMotion: ReduceMotion.System }),
-    );
+    ));
   }, [scale, selected]);
   const color = selected ? onBrand : brandGreen;
   return (

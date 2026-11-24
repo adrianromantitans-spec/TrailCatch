@@ -1,24 +1,31 @@
 import { Image } from 'expo-image';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { CategoryBadge, CategoryPicker } from '../../components/CategoryPicker';
 import { TabContent, useTabClearance } from '../../components/GlassTabBar';
-import { Avatar, Button, Field, Header, Notice, side, styles, usePalette } from '../../components/ui';
+import { Avatar, Button, Field, Header, IconButton, Notice, side, styles, usePalette } from '../../components/ui';
 import { OutingType, photoList } from '../../db/model';
 import { useOutingPages } from '../../db/useDiary';
 import { t } from '../../i18n';
+import { backend } from '../../services/backend';
 import { photoSource } from '../../services/photos';
 
 export default function Explore() {
   const p = usePalette();
+  const router = useRouter();
   const tabClearance = useTabClearance();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<OutingType | 'all'>('all');
   const [saved, setSaved] = useState(false);
   const { items, error, refreshing, load } = useOutingPages({ query, type: category === 'all' ? undefined : category, saved });
   return <TabContent name="explore">
-    <Header title={t.explore} />
+    <Header title={t.explore}>
+      {backend && <>
+        <IconButton name="map-outline" label={t.spots} onPress={() => router.push('/spots')} />
+        <IconButton name="people-outline" label={t.users} onPress={() => router.push('/people')} />
+      </>}
+    </Header>
     <View style={{ padding: side, gap: 12 }}>
       <Field label={t.search} value={query} onChangeText={setQuery} placeholder={t.searchPlaceholder} returnKeyType="search" />
       <CategoryPicker mode="filter" value={category} onChange={setCategory} />

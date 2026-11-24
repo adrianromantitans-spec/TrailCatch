@@ -55,7 +55,7 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
   const slotIndex = position < 2 ? position : position + 1;
 
   useEffect(() => {
-    offset.value = withSpring(Math.max(0, slotIndex) * slot, { reduceMotion: ReduceMotion.System });
+    offset.set(withSpring(Math.max(0, slotIndex) * slot, { reduceMotion: ReduceMotion.System }));
   }, [offset, slot, slotIndex]);
   const indicator = useAnimatedStyle(() => ({ transform: [{ translateX: offset.value }] }));
   const plus = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -102,8 +102,8 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
           {tab('index')}
           {tab('map')}
           <Pressable accessibilityRole="button" accessibilityLabel={t.create} style={styles.slot}
-            onPressIn={() => { scale.value = withSpring(0.88); }}
-            onPressOut={() => { scale.value = withSpring(1); }}
+            onPressIn={() => { scale.set(withSpring(0.88)); }}
+            onPressOut={() => { scale.set(withSpring(1)); }}
             onPress={() => {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
               onCreate();

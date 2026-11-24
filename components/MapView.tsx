@@ -5,12 +5,15 @@ import { Outing, Point } from '../db/model';
 import { t } from '../i18n';
 import { Button, side, styles as ui, usePalette } from './ui';
 
+type Region = Point & { latitudeDelta: number; longitudeDelta: number };
+type MapPin = Point & { id: string; title: string };
+
 const layers = ['standard', 'satellite', 'terrain'] as const;
 const initial = { latitude: 46.70, longitude: 23.42, latitudeDelta: 0.45, longitudeDelta: 0.45 };
 
-export function MapView({ point, movedTo, outings = [], onSelect, onPick, height, bottomOffset = 8, emptyMessage }: {
-  point?: Point; movedTo?: Point; outings?: Outing[]; onSelect?: (id: string) => void;
-  onPick?: (point: Point) => void; height?: number; bottomOffset?: number; emptyMessage?: string;
+export function MapView({ point, movedTo, outings = [], onSelect, onPick, height, bottomOffset = 8, emptyMessage, pins = [], onViewport }: {
+  point?: Point; movedTo?: Point & Partial<Region>; outings?: Outing[]; onSelect?: (id: string) => void;
+  onPick?: (point: Point) => void; height?: number; bottomOffset?: number; emptyMessage?: string; pins?: MapPin[]; onViewport?: (region: Region) => void;
 }) {
   const p = usePalette();
   const map = useRef<NativeMap>(null);
@@ -19,23 +22,28 @@ export function MapView({ point, movedTo, outings = [], onSelect, onPick, height
   const latitude = destination?.latitude;
   const longitude = destination?.longitude;
   const center = point ?? destination;
+  const latitudeDelta = movedTo?.latitudeDelta ?? 0.075;
+  const longitudeDelta = movedTo?.longitudeDelta ?? 0.075;
   useEffect(() => {
     if (latitude != null && longitude != null) {
-      map.current?.animateToRegion({ latitude, longitude, latitudeDelta: 0.075, longitudeDelta: 0.075 });
+      map.current?.animateToRegion({ latitude, longitude, latitudeDelta, longitudeDelta });
     }
-  }, [latitude, longitude]);
+  }, [latitude, longitude, latitudeDelta, longitudeDelta]);
 
   return (
     <View style={[styles.frame, { backgroundColor: p.soft }, height ? { height, borderRadius: 16 } : { flex: 1 }]}>
       <NativeMap ref={map} style={StyleSheet.absoluteFill} mapType={layer}
         initialRegion={center ? { ...center, latitudeDelta: 0.075, longitudeDelta: 0.075 } : initial}
         onPress={onPick ? ({ nativeEvent }) => onPick(nativeEvent.coordinate) : undefined}
+        onRegionChangeComplete={onViewport}
         mapPadding={height ? undefined : { top: 60, bottom: bottomOffset, left: 0, right: 0 }}
         toolbarEnabled={false} moveOnMarkerPress={false}>
         {layer === 'standard' && <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />}
         {point && <Marker coordinate={point} pinColor="#255A46" />}
         {outings.map((outing) => <Marker key={outing.id} coordinate={outing.point} title={outing.title}
           pinColor={outing.type === 'hike' ? '#255A46' : '#28687C'} onPress={() => onSelect?.(outing.id)} />)}
+        {pins.map((pin) => <Marker key={`spot-${pin.id}`} coordinate={pin} title={pin.title}
+          pinColor="#255A46" onPress={() => onSelect?.(pin.id)} />)}
       </NativeMap>
       {!onPick && <View style={[ui.columns, styles.layers, !height && { left: side, right: side }]} pointerEvents="box-none">
         {layers.map((item) => <Button key={item} label={t[item]} stretch selected={layer === item} onPress={() => setLayer(item)} />)}
