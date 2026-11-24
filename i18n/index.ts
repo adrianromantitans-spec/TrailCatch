@@ -58,7 +58,7 @@ const es = {
   pushUnavailable: 'Las notificaciones push requieren una compilación de la app configurada.',
   pushEnabled: 'Notificaciones activadas.', publish: 'Publicar en el feed', reportAlready: 'Ya reportaste este contenido.',
   continueAsGuest: 'Entrar como invitado', welcomeBack: 'Bienvenido de nuevo',
-  splashSubtitle: 'Diario de pesca y senderismo', brandTrail: 'Trail', brandCatch: 'Catch',
+  splashSubtitle: 'Diario de pesca y senderismo', skipIntro: 'Saltar animación', brandTrail: 'Trail', brandCatch: 'Catch',
   rememberMe: 'Mantener sesión iniciada', forgotPassword: '¿Olvidaste la contraseña?',
   resetPassword: 'Restablecer contraseña', resetEmail: 'Enviar enlace', resetSent: 'Si la cuenta existe, recibirás un enlace por correo.',
   invalidResetLink: 'El enlace no está disponible o ha caducado. Solicita uno nuevo.',
