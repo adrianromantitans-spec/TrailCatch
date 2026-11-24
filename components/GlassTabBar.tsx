@@ -145,7 +145,7 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
         }]}>
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
             {nativeGlass ? <GlassView glassEffectStyle="regular" colorScheme={p.dark ? 'dark' : 'light'}
-                tintColor={p.dark ? '#15281F26' : '#ECFFF224'} style={StyleSheet.absoluteFill} />
+                tintColor={p.dark ? '#15281F26' : '#FFFFFF48'} style={StyleSheet.absoluteFill} />
               : blur && <BlurView key={active} blurTarget={target}
                 experimentalBlurMethod="dimezisBlurView"
                 tint={p.dark ? 'dark' : 'light'} intensity={35} style={StyleSheet.absoluteFill} />}

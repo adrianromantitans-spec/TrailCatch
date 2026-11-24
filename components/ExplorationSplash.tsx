@@ -7,12 +7,14 @@ import type { SharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Stop } from 'react-native-svg';
 import { t } from '../i18n';
+import { EntryWordmark } from './EntryWordmark';
 import { side, usePalette } from './ui';
 
 export const SPLASH_TIMING = {
   arrival: 400,
   journeyEnd: 2400,
   nameStart: 2460,
+  nameEnd: 2760,
   subtitleStart: 2660,
   loginStart: 3000,
   end: 3500,
@@ -222,7 +224,7 @@ export function ExplorationSplash({ time, skip, reduced }: {
     opacity: reduced ? 1 : 1 - easeInOut(range(time.get(), SPLASH_TIMING.loginStart, SPLASH_TIMING.end)),
   }), [reduced]);
   const title = useAnimatedStyle(() => {
-    const reveal = reduced ? 1 : easeOut(range(time.get(), SPLASH_TIMING.nameStart, SPLASH_TIMING.loginStart));
+    const reveal = reduced ? 1 : easeOut(range(time.get(), SPLASH_TIMING.nameStart, SPLASH_TIMING.nameEnd));
     return { opacity: reveal, transform: [{ scale: 0.95 + reveal * 0.05 }] };
   }, [reduced]);
   const subtitle = useAnimatedStyle(() => {
@@ -234,9 +236,7 @@ export function ExplorationSplash({ time, skip, reduced }: {
     <Pressable accessibilityRole="button" accessibilityLabel={t.skipIntro} onPress={skip} style={splash.touch}>
       {!reduced && <TrailScene time={time} />}
       <Animated.View style={title}>
-        <Text accessibilityRole="header" accessibilityLabel={t.app} style={[splash.brand, { color: p.ink }]}>
-          {t.brandTrail}<Text style={{ color: p.accent }}>{t.brandCatch}</Text>
-        </Text>
+        <EntryWordmark />
       </Animated.View>
       <Animated.View style={subtitle}>
         <Text style={[splash.subtitle, { color: p.muted }]}>{t.splashSubtitle}</Text>
@@ -250,6 +250,5 @@ const splash = StyleSheet.create({
   touch: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: side, gap: 7 },
   art: { width: '100%', maxWidth: 360, aspectRatio: W / H },
   walker: { position: 'absolute', width: 68, height: 79, left: '50%', top: `${WALKER_Y / H * 100}%`, marginLeft: -34, marginTop: -39.5 },
-  brand: { fontSize: 44, fontWeight: '800', letterSpacing: -1.7 },
   subtitle: { fontSize: 13, textAlign: 'center' },
 });

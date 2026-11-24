@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmailAuthForm } from '../components/EmailAuthForm';
 import type { AuthMode } from '../components/EmailAuthForm';
 import { EntryIllustration } from '../components/EntryIllustration';
+import { EntryWordmark } from '../components/EntryWordmark';
 import { ExplorationSplash, useExplorationSplash } from '../components/ExplorationSplash';
 import { side, usePalette } from '../components/ui';
 import { t } from '../i18n';
@@ -22,17 +23,22 @@ export default function Welcome() {
 
   if (session || guest || !backend) return <Redirect href="/" />;
 
-  return <View style={[layout.screen, { backgroundColor: p.bg }]}>
+  const entryBackground = p.dark ? p.bg : p.surface;
+
+  return <View style={[layout.screen, { backgroundColor: entryBackground }]}>
     <StatusBar style={p.dark ? 'light' : 'dark'} />
     <KeyboardAvoidingView behavior="padding" style={layout.screen}>
       <ScrollView keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="never"
         accessibilityElementsHidden={showSplash} importantForAccessibility={showSplash ? 'no-hide-descendants' : 'auto'}
         scrollEnabled={!showSplash} contentContainerStyle={layout.scroll} showsVerticalScrollIndicator={false}>
-        <View style={{ height: Math.max(184, Math.min(height * 0.38, 340)), backgroundColor: p.dark ? '#263B30' : '#F3EADB' }}>
+        <View style={{ height: Math.max(184, Math.min(height * 0.38, 340)), backgroundColor: entryBackground }}>
           <EntryIllustration dark={p.dark} />
+          <View style={[layout.wordmark, { top: inset.top + 10, backgroundColor: p.surface, borderColor: p.line }]}>
+            <EntryWordmark compact />
+          </View>
         </View>
         <Animated.View style={[layout.sheet, sheetTransition, {
-          backgroundColor: p.dark ? p.bg : p.surface, paddingBottom: Math.max(side, inset.bottom) + 8,
+          backgroundColor: entryBackground, paddingBottom: Math.max(side, inset.bottom) + 8,
         }]}>
           <View style={layout.form}>
             <Text accessibilityRole="header" style={[layout.title, { color: p.ink }]}>
@@ -53,6 +59,8 @@ export default function Welcome() {
 const layout = StyleSheet.create({
   screen: { flex: 1 },
   scroll: { flexGrow: 1 },
+  wordmark: { position: 'absolute', alignSelf: 'center', maxWidth: '85%', borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth, paddingVertical: 4, paddingHorizontal: 16 },
   sheet: { flexGrow: 1, marginTop: -29, borderTopLeftRadius: 32, borderTopRightRadius: 32,
     paddingTop: 24, paddingHorizontal: side },
   form: { width: '100%', maxWidth: 440, alignSelf: 'center', gap: 14 },

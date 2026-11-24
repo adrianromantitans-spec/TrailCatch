@@ -1,7 +1,7 @@
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 export function EntryIllustration({ splash, dark }: { splash?: boolean; dark: boolean }) {
-  const paper = dark ? '#182922' : splash ? '#FFFFFF' : '#F2EDDF';
+  const paper = dark ? '#182922' : splash ? '#FFFFFF' : '#EDF5EF';
   const hill = dark ? '#223A30' : '#DCE5D9';
   const land = dark ? '#355247' : '#A7BDAA';
   const water = dark ? '#293F3D' : '#BDD5D0';
@@ -10,7 +10,7 @@ export function EntryIllustration({ splash, dark }: { splash?: boolean; dark: bo
   return <Svg width="100%" height="100%" viewBox="0 0 400 268" preserveAspectRatio={splash ? 'xMidYMid meet' : 'xMidYMid slice'}>
     <Defs>
       <LinearGradient id="wash" x1="0" x2="0" y1="0" y2="1">
-        <Stop offset="0" stopColor={dark ? '#263B30' : '#F3EADB'} />
+        <Stop offset="0" stopColor={dark ? '#263B30' : '#FFFFFF'} />
         <Stop offset="1" stopColor={paper} />
       </LinearGradient>
       <LinearGradient id="water" x1="0" x2="0" y1="0" y2="1">
@@ -19,7 +19,7 @@ export function EntryIllustration({ splash, dark }: { splash?: boolean; dark: bo
       </LinearGradient>
     </Defs>
     {!splash && <Rect width="400" height="268" fill="url(#wash)" />}
-    <Circle cx="247" cy="81" r="40" fill={dark ? '#5D6550' : '#E7C997'} opacity={splash ? 0.65 : 0.8} />
+    <Circle cx="247" cy="81" r="40" fill={dark ? '#5D6550' : '#DDEEE2'} opacity={splash ? 0.65 : 0.8} />
     <Path d="M0 150 72 112 130 137 192 81 252 130 304 102 400 150Z" fill={hill} />
     <Path d="M0 164 79 141 141 155 208 121 278 152 340 129 400 154V181H0Z" fill={land} />
     <Path d="M0 172C105 164 274 168 400 171V257H0Z" fill="url(#water)" />
