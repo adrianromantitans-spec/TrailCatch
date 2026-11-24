@@ -8,7 +8,14 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../i18n';
-import { IconName, usePalette } from './ui';
+import { IconName, side, usePalette } from './ui';
+
+const barHeight = 64;
+const barBottom = (inset: number) => Math.max(inset, 8) + 8;
+
+export function useTabClearance() {
+  return barHeight + barBottom(useSafeAreaInsets().bottom) + 16;
+}
 
 export const tabNames = ['index', 'map', 'explore', 'profile'] as const;
 type TabName = typeof tabNames[number];
@@ -68,15 +75,17 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
           const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
           if (!selected && !event.defaultPrevented) navigateToTab(route.key);
         }}>
-        <Ionicons name={icons[name]} size={23} color={selected ? p.accent : p.muted} />
-        {selected && <Text numberOfLines={1} style={[styles.label, { color: p.accent }]}>{label}</Text>}
+        <View style={styles.tabIcon}><Ionicons name={icons[name]} size={23} color={selected ? p.accent : p.muted} /></View>
+        <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[styles.label, { color: p.accent }]}>
+          {selected ? label : ' '}
+        </Text>
       </Pressable>
     );
   }
 
   return (
-    <View pointerEvents="box-none" style={[styles.outer, { bottom: Math.max(inset.bottom, 9) + 8, shadowColor: '#14251D' }]}>
-      <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={[styles.pill, {
+    <View pointerEvents="box-none" style={[styles.outer, { bottom: barBottom(inset.bottom), left: inset.left + side, right: inset.right + side, shadowColor: '#14251D' }]}>
+      <View style={[styles.pill, {
         backgroundColor: nativeGlass ? 'transparent' : blur ? p.glass : p.glassSolid,
         borderColor: p.dark ? '#FFFFFF33' : '#FFFFFFEA',
       }]}>
@@ -86,23 +95,25 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
               experimentalBlurMethod="dimezisBlurView"
               tint={p.dark ? 'dark' : 'light'} intensity={35} style={StyleSheet.absoluteFill} />}
         </View>
-        {width > 0 && <Animated.View pointerEvents="none" style={[styles.indicator,
-          { width: Math.max(0, slot - 8), backgroundColor: p.soft }, indicator]} />}
-        {tab('index')}
-        {tab('map')}
-        <Pressable accessibilityRole="button" accessibilityLabel={t.create} style={styles.slot}
-          onPressIn={() => { scale.value = withSpring(0.88); }}
-          onPressOut={() => { scale.value = withSpring(1); }}
-          onPress={() => {
-            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-            onCreate();
-          }}>
-          <Animated.View style={[styles.plus, { backgroundColor: p.accent }, plus]}>
-            <Ionicons name="add" size={29} color={p.dark ? '#12251B' : '#FFFFFF'} />
-          </Animated.View>
-        </Pressable>
-        {tab('explore')}
-        {tab('profile')}
+        <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={styles.tabRow}>
+          {width > 0 && <Animated.View pointerEvents="none" style={[styles.indicator,
+            { width: Math.max(0, slot - 8), backgroundColor: p.soft }, indicator]} />}
+          {tab('index')}
+          {tab('map')}
+          <Pressable accessibilityRole="button" accessibilityLabel={t.create} style={styles.slot}
+            onPressIn={() => { scale.value = withSpring(0.88); }}
+            onPressOut={() => { scale.value = withSpring(1); }}
+            onPress={() => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              onCreate();
+            }}>
+            <Animated.View style={[styles.plus, { backgroundColor: p.accent }, plus]}>
+              <Ionicons name="add" size={29} color={p.dark ? '#12251B' : '#FFFFFF'} />
+            </Animated.View>
+          </Pressable>
+          {tab('explore')}
+          {tab('profile')}
+        </View>
       </View>
     </View>
   );
@@ -110,11 +121,13 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  outer: { position: 'absolute', left: 16, right: 16, borderRadius: 34, elevation: 5,
+  outer: { position: 'absolute', borderRadius: 32, elevation: 5,
     shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 5 } },
-  pill: { height: 66, flexDirection: 'row', borderRadius: 34, borderWidth: 1, overflow: 'hidden' },
+  pill: { height: barHeight, borderRadius: 32, borderWidth: 1, overflow: 'hidden' },
+  tabRow: { flex: 1, flexDirection: 'row' },
+  tabIcon: { height: 24, justifyContent: 'center' },
   slot: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  indicator: { position: 'absolute', top: 7, bottom: 7, left: 4, borderRadius: 25 },
-  label: { fontSize: 10, fontWeight: '700', maxWidth: '100%' },
-  plus: { width: 46, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center' },
+  indicator: { position: 'absolute', top: 7, bottom: 7, left: 4, borderRadius: 24 },
+  label: { fontSize: 10, lineHeight: 14, textAlign: 'center', fontWeight: '700', maxWidth: '100%' },
+  plus: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
 });

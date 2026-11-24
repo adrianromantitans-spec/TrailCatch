@@ -151,8 +151,8 @@ export default function Create() {
 
   function thumbnail(photo: Photo, onRemove: () => void) {
     return <View key={'uri' in photo ? photo.uri : photo.sample}>
-      <Image source={photoSource(photo)} style={{ width: 84, height: 84, borderRadius: 11 }} />
-      <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: p.glassSolid, borderRadius: 21 }}>
+      <Image source={photoSource(photo)} style={{ width: 88, height: 88, borderRadius: 12 }} />
+      <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: p.glassSolid, borderRadius: 22 }}>
         <IconButton name="close" label={t.removePhoto} onPress={() => {
           if (busy) return;
           try { onRemove(); } catch { Alert.alert(t.deleteError); }
@@ -163,24 +163,33 @@ export default function Create() {
 
   return <>
     <Header title={t.create} back={() => router.back()} />
-    <ScrollView className="flex-1" keyboardShouldPersistTaps="handled"
-      contentContainerStyle={{ gap: 14, padding: side, paddingBottom: inset.bottom + side }}>
-      <View style={styles.row}>{outingTypes.map((item) =>
-        <Button key={item} label={t[item]} selected={type === item} disabled={!!busy} onPress={() => setType(item)} />)}</View>
-      <Field label={t.title} value={title} onChangeText={setTitle} />
-      <Field label={t.date} value={date} onChangeText={setDate} placeholder={t.dateHint} autoCapitalize="none" maxLength={10} />
-      <Text style={[styles.section, { color: p.ink }]}>{t.location}</Text>
-      <Text style={{ color: p.muted }}>{t.pickPoint}</Text>
-      <MapView point={point} movedTo={movedTo} onPick={setPoint} height={230} />
-      <Button label={busy === 'location' ? t.loading : t.myLocation} icon="locate-outline" disabled={!!busy} onPress={() => void locate()} />
-      <Field label={t.notes} value={notes} onChangeText={setNotes} multiline />
-      <View style={styles.row}>
-        {photos.map((photo) => thumbnail(photo, () => { remove(photo); setPhotos((old) => old.filter((item) => item !== photo)); }))}
+    <ScrollView className="flex-1" keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets
+      contentInsetAdjustmentBehavior="never"
+      contentContainerStyle={[styles.content, { gap: 24, paddingBottom: inset.bottom + side }]}>
+      <View style={styles.group}>
+        <View style={styles.row}>{outingTypes.map((item) =>
+          <Button key={item} label={t[item]} selected={type === item} disabled={!!busy} onPress={() => setType(item)} />)}</View>
+        <Field label={t.title} value={title} onChangeText={setTitle} />
+        <Field label={t.date} value={date} onChangeText={setDate} placeholder={t.dateHint} autoCapitalize="none" maxLength={10} />
       </View>
-      <Button label={busy === 'photo' ? t.loading : t.photos} icon="images-outline" disabled={!!busy} onPress={() => void pick()} />
-      {type !== 'hike' && <>
+      <View style={styles.group}>
+        <View style={{ gap: 4 }}>
+          <Text style={[styles.section, { color: p.ink }]}>{t.location}</Text>
+          <Text style={{ color: p.muted }}>{t.pickPoint}</Text>
+        </View>
+        <MapView point={point} movedTo={movedTo} onPick={setPoint} height={232} />
+        <Button label={busy === 'location' ? t.loading : t.myLocation} icon="locate-outline" disabled={!!busy} onPress={() => void locate()} />
+      </View>
+      <View style={styles.group}>
+        <Field label={t.notes} value={notes} onChangeText={setNotes} multiline />
+        {photos.length > 0 && <View style={styles.row}>
+          {photos.map((photo) => thumbnail(photo, () => { remove(photo); setPhotos((old) => old.filter((item) => item !== photo)); }))}
+        </View>}
+        <Button label={busy === 'photo' ? t.loading : t.photos} icon="images-outline" disabled={!!busy} onPress={() => void pick()} />
+      </View>
+      {type !== 'hike' && <View style={styles.group}>
         <Text style={[styles.section, { color: p.ink }]}>{t.catches}</Text>
-        {catches.map((item) => <View key={item.key} style={{ gap: 10, padding: 13, borderRadius: 15, borderWidth: 1, borderColor: p.line }}>
+        {catches.map((item) => <View key={item.key} style={{ gap: 12, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: p.line, backgroundColor: p.surface }}>
           {(['species', 'size', 'weight', 'bait', 'time'] as const).map((field) => <Field key={field}
             label={t[field]} value={item[field]} onChangeText={(value) => updateCatch(item.key, { [field]: value })}
             keyboardType={field === 'size' || field === 'weight' ? 'decimal-pad' : 'default'} />)}
@@ -195,12 +204,12 @@ export default function Create() {
           const key = nextCatch.current++;
           setCatches((old) => [...old, { key, species: '', size: '', weight: '', bait: '', time: '' }]);
         }} />
-      </>}
-      {type !== 'fishing' && <>
+      </View>}
+      {type !== 'fishing' && <View style={styles.group}>
         <Text style={[styles.section, { color: p.ink }]}>{t.hike}</Text>
         {(['distance', 'duration', 'ascent'] as const).map((field) => <Field key={field} label={t[field]}
           value={route[field]} keyboardType="decimal-pad" onChangeText={(value) => setRoute((old) => ({ ...old, [field]: value }))} />)}
-      </>}
+      </View>}
       {error && <Text accessibilityLiveRegion="polite" style={{ color: p.danger }}>{error}</Text>}
       <Button label={busy === 'save' ? t.saving : t.save} primary disabled={!!busy} onPress={() => void save()} />
     </ScrollView>

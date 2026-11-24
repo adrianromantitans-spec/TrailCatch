@@ -16,16 +16,17 @@ const dark = {
   glass: '#1B2723B8', glassSolid: '#1B2723F5',
 };
 export const usePalette = () => useColorScheme() === 'dark' ? dark : light;
-export const bottomSpace = 104;
 export const side = 20;
 
-export function IconButton({ name, label, onPress, color }: {
-  name: IconName; label: string; onPress: () => void; color?: string;
+export function IconButton({ name, label, onPress, color, align }: {
+  name: IconName; label: string; onPress: () => void; color?: string; align?: 'start' | 'end';
 }) {
   const p = usePalette();
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} hitSlop={4}
-      onPress={onPress} style={({ pressed }) => [styles.icon, { opacity: pressed ? 0.55 : 1 }]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={label}
+      onPress={onPress} style={({ pressed }) => [styles.icon, { opacity: pressed ? 0.55 : 1,
+        alignItems: align === 'start' ? 'flex-start' : align === 'end' ? 'flex-end' : 'center',
+      }]}>
       <Ionicons name={name} size={23} color={color ?? p.ink} />
     </Pressable>
   );
@@ -35,28 +36,28 @@ export function Header({ title, back, children }: { title: string; back?: () => 
   const p = usePalette();
   const inset = useSafeAreaInsets();
   return (
-    <View style={[styles.header, { paddingTop: inset.top + 5, backgroundColor: p.bg, borderColor: p.line }]}>
-      {back && <IconButton name="chevron-back" label={t.back} onPress={back} />}
-      <Text accessibilityRole="header" style={[styles.headerText, { color: p.ink }]}>{title}</Text>
+    <View style={[styles.header, { paddingTop: inset.top + 4, backgroundColor: p.bg, borderColor: p.line }]}>
+      {back && <IconButton name="chevron-back" align="start" label={t.back} onPress={back} />}
+      <Text accessibilityRole="header" numberOfLines={2} style={[styles.headerText, { color: p.ink }]}>{title}</Text>
       {children}
     </View>
   );
 }
 
-export function Button({ label, onPress, icon, primary, danger, selected, disabled }: {
+export function Button({ label, onPress, icon, primary, danger, selected, disabled, stretch }: {
   label: string; onPress: () => void; icon?: IconName; primary?: boolean; danger?: boolean;
-  selected?: boolean; disabled?: boolean;
+  selected?: boolean; disabled?: boolean; stretch?: boolean;
 }) {
   const p = usePalette();
   const color = primary ? (p.dark ? '#12251B' : '#FFFFFF') : danger ? p.danger : selected ? p.accent : p.ink;
   return (
     <Pressable accessibilityRole="button" accessibilityState={{ selected, disabled }} disabled={disabled}
-      onPress={onPress} style={({ pressed }) => [styles.button, {
+      onPress={onPress} style={({ pressed }) => [styles.button, stretch && styles.stretchButton, {
         backgroundColor: primary ? p.accent : selected ? p.soft : p.surface,
         borderColor: selected ? p.accent : p.line, opacity: disabled || pressed ? 0.6 : 1,
       }]}>
       {icon && <Ionicons name={icon} size={18} color={color} />}
-      <Text style={{ color, fontWeight: '600', flexShrink: 1 }}>{label}</Text>
+      <Text style={{ color, fontWeight: '600', flexShrink: 1, textAlign: 'center' }}>{label}</Text>
     </Pressable>
   );
 }
@@ -64,7 +65,7 @@ export function Button({ label, onPress, icon, primary, danger, selected, disabl
 export function Field({ label, ...props }: TextInputProps & { label: string }) {
   const p = usePalette();
   return (
-    <View style={{ gap: 6 }}>
+    <View style={{ gap: 8 }}>
       <Text style={{ color: p.muted, fontWeight: '600' }}>{label}</Text>
       <TextInput accessibilityLabel={label} placeholderTextColor={p.muted} {...props}
         style={[styles.input, { color: p.ink, borderColor: p.line, backgroundColor: p.surface },
@@ -94,13 +95,21 @@ export function Avatar({ sample, size = 38 }: { sample?: boolean; size?: number 
 }
 
 export const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', minHeight: 54, paddingBottom: 5, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth },
-  headerText: { flex: 1, fontWeight: '800', fontSize: 23, letterSpacing: -0.6, marginHorizontal: 4 },
-  icon: { width: 42, height: 42, justifyContent: 'center', alignItems: 'center' },
-  button: { minHeight: 44, borderRadius: 14, borderWidth: 1, paddingHorizontal: 13, paddingVertical: 9, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
-  input: { minHeight: 48, borderWidth: 1, borderRadius: 14, paddingHorizontal: 13, paddingVertical: 10, fontSize: 16 },
-  notice: { padding: 26, minHeight: 120, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingBottom: 4, paddingHorizontal: side, borderBottomWidth: StyleSheet.hairlineWidth },
+  headerText: { flex: 1, fontWeight: '800', fontSize: 23, letterSpacing: -0.6 },
+  icon: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  button: { minHeight: 44, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
+  stretchButton: { flex: 1, minWidth: 0 },
+  input: { minHeight: 48, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12, fontSize: 16 },
+  notice: { padding: 24, minHeight: 120, alignItems: 'center', justifyContent: 'center', gap: 12 },
   avatar: { alignItems: 'center', justifyContent: 'center' },
+  screen: { flex: 1 },
+  content: { padding: side, gap: 16 },
+  group: { gap: 12 },
+  columns: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
   section: { fontSize: 18, fontWeight: '700' },
+  metricRow: { flexDirection: 'row', alignItems: 'baseline', gap: 12, minHeight: 24 },
+  metricLabel: { flex: 1 },
+  metricValue: { flexShrink: 1, maxWidth: '55%', textAlign: 'right', fontWeight: '600' },
   row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
 });

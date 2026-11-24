@@ -21,7 +21,8 @@ export default function Stats() {
   const hour = stats.bestTime;
   return <>
     <Header title={t.annual} back={() => router.back()} />
-    <ScrollView contentContainerStyle={{ padding: side, gap: 19, paddingBottom: side + inset.bottom }}>
+    <ScrollView style={styles.screen} contentInsetAdjustmentBehavior="never"
+      contentContainerStyle={[styles.content, { paddingBottom: side + inset.bottom }]}>
       <View style={[styles.row, { justifyContent: 'space-between' }]}>
         <IconButton name="chevron-back" label={t.previousYear} onPress={() => setYear(Math.max(1, year - 1))} />
         <Text style={[styles.section, { color: p.ink }]}>{year}</Text>
@@ -29,22 +30,25 @@ export default function Stats() {
       </View>
       {error ? <Notice message={t.loadError} retry={() => void load()} /> : !items ? <Notice message={t.loading} loading />
         : !stats.total ? <Notice message={t.empty} /> : <>
-          {[
-            [t.outings, stats.total], [t.catches, stats.catches], [t.totalKm, number.format(stats.distance)],
-            [t.bestMonth, stats.bestMonth == null ? t.unavailable : month(stats.bestMonth, 'long')],
-            [t.bestBait, stats.bestBait ?? t.unavailable],
-            [t.bestTime, hour ? `${hour}:00–${hour}:59` : t.unavailable],
-          ].map(([label, value]) => <View style={[styles.row, { justifyContent: 'space-between' }]} key={label}>
-            <Text style={{ color: p.muted }}>{label}</Text><Text style={{ color: p.ink, fontWeight: '700' }}>{value}</Text>
+          <View style={{ gap: 8 }}>
+            {[
+              [t.outings, stats.total], [t.catches, stats.catches], [t.totalKm, number.format(stats.distance)],
+              [t.bestMonth, stats.bestMonth == null ? t.unavailable : month(stats.bestMonth, 'long')],
+              [t.bestBait, stats.bestBait ?? t.unavailable],
+              [t.bestTime, hour ? `${hour}:00–${hour}:59` : t.unavailable],
+            ].map(([label, value]) => <View style={styles.metricRow} key={label}>
+              <Text style={[styles.metricLabel, { color: p.muted }]}>{label}</Text>
+              <Text style={[styles.metricValue, { color: p.ink }]}>{value}</Text>
           </View>)}
+          </View>
           <Text style={[styles.section, { color: p.ink }]}>{t.byMonth}</Text>
-          <View style={{ gap: 7 }}>
+          <View style={{ gap: 8 }}>
             {stats.months.map((value, index) => <View key={index} style={[styles.row, { flexWrap: 'nowrap' }]}>
-              <Text style={{ color: p.muted, width: 40 }}>{month(index, 'short')}</Text>
-              <View style={{ flex: 1, height: 9, backgroundColor: p.soft, borderRadius: 5 }}>
-                <View style={{ width: `${value / max * 100}%`, flex: 1, backgroundColor: p.water, borderRadius: 5 }} />
+              <Text style={{ color: p.muted, minWidth: 40 }}>{month(index, 'short')}</Text>
+              <View style={{ flex: 1, height: 8, backgroundColor: p.soft, borderRadius: 4 }}>
+                <View style={{ width: `${value / max * 100}%`, flex: 1, backgroundColor: p.water, borderRadius: 4 }} />
               </View>
-              <Text style={{ color: p.ink, minWidth: 18, textAlign: 'right' }}>{value}</Text>
+              <Text style={{ color: p.ink, minWidth: 24, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{value}</Text>
             </View>)}
           </View>
         </>}

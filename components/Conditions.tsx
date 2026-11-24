@@ -53,8 +53,8 @@ export function Conditions({ point, date }: { point: Point; date: string }) {
       : error ? <Notice message={t.weatherError} retry={() => setAttempt(attempt + 1)} />
       : result === undefined ? <Notice message={t.loading} loading />
       : result === null ? <Notice message={t.unavailable} />
-      : rows.map(([label, value]) => <View key={label} style={[styles.row, { justifyContent: 'space-between' }]}>
-        <Text style={{ color: p.muted }}>{label}</Text><Text style={{ color: p.ink, fontWeight: '600' }}>{value}</Text>
+      : rows.map(([label, value]) => <View key={label} style={styles.metricRow}>
+        <Text style={[styles.metricLabel, { color: p.muted }]}>{label}</Text><Text style={[styles.metricValue, { color: p.ink }]}>{value}</Text>
       </View>)}
   </View>;
 }

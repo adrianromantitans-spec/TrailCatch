@@ -18,7 +18,7 @@ export function FeedCard({ item, onLike, onSave, onComment }: {
       <Link href={destination} asChild>
         <Pressable style={styles.author}>
           <Avatar sample={item.sample} />
-          <View style={{ flex: 1, gap: 3 }}>
+          <View style={{ flex: 1, gap: 4 }}>
             <Text style={{ color: p.ink, fontWeight: '700' }}>{item.sample ? t.sampleAuthor : t.personal}</Text>
             <Text style={{ color: p.muted, fontSize: 12 }}>{t[item.type]}</Text>
           </View>
@@ -57,7 +57,7 @@ export function FeedSkeleton() {
   return <View accessibilityLabel={t.loading} style={{ backgroundColor: p.surface }}>
     <View style={styles.author}>
       <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: p.soft }} />
-      <View style={{ gap: 7 }}>
+      <View style={{ gap: 8 }}>
         <View style={{ width: 110, height: 11, borderRadius: 5, backgroundColor: p.soft }} />
         <View style={{ width: 62, height: 9, borderRadius: 5, backgroundColor: p.soft }} />
       </View>
@@ -69,8 +69,8 @@ export function FeedSkeleton() {
 
 const styles = StyleSheet.create({
   card: { borderBottomWidth: StyleSheet.hairlineWidth, marginBottom: 8 },
-  author: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: side, paddingVertical: 10 },
+  author: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: side, paddingVertical: 12 },
   photo: { width: '100%', aspectRatio: 4 / 5 },
-  actions: { flexDirection: 'row', paddingHorizontal: 12, paddingTop: 3 },
-  caption: { paddingHorizontal: side, paddingBottom: 15, gap: 5 },
+  actions: { flexDirection: 'row', paddingHorizontal: side - 12, paddingTop: 4 },
+  caption: { paddingHorizontal: side, paddingBottom: 16, gap: 4 },
 });
