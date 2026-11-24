@@ -1,91 +1,85 @@
-import { Image } from 'expo-image';
+import { Redirect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { Easing, FadeIn, FadeInDown, LinearTransition, ReduceMotion, ZoomIn } from 'react-native-reanimated';
+import { useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Animated, { Easing, FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { EmailAuthForm } from '../components/EmailAuthForm';
-import { Button, IconButton, onBrand, side, usePalette } from '../components/ui';
+import type { AuthMode } from '../components/EmailAuthForm';
+import { EntryIllustration } from '../components/EntryIllustration';
+import { side, usePalette } from '../components/ui';
 import { t } from '../i18n';
-import { useSession } from '../services/backend';
+import { backend, useSession } from '../services/backend';
 
-type Mode = 'start' | 'signIn' | 'signUp';
-
-const opening = FadeInDown.duration(540).springify().damping(24).reduceMotion(ReduceMotion.System);
-const switchForm = FadeInDown.duration(260).easing(Easing.out(Easing.cubic)).reduceMotion(ReduceMotion.System);
-const resize = LinearTransition.duration(360).easing(Easing.out(Easing.cubic)).reduceMotion(ReduceMotion.System);
-const fade = FadeIn.duration(420).reduceMotion(ReduceMotion.System);
-const landscapeOpening = ZoomIn.duration(850).reduceMotion(ReduceMotion.System);
+const reveal = FadeIn.duration(380).easing(Easing.out(Easing.cubic)).reduceMotion(ReduceMotion.System);
+const dismiss = FadeOut.duration(340).easing(Easing.inOut(Easing.cubic)).reduceMotion(ReduceMotion.System);
+let introPlayed = false;
 
 export default function Welcome() {
   const p = usePalette();
   const inset = useSafeAreaInsets();
-  const { continueAsGuest } = useSession();
-  const [mode, setMode] = useState<Mode>('start');
-  const form = mode !== 'start';
+  const { height } = useWindowDimensions();
+  const { session, guest, continueAsGuest } = useSession();
+  const [showSplash, setShowSplash] = useState(() => !introPlayed);
+  const [mode, setMode] = useState<AuthMode>('signIn');
 
-  function change(next: Mode) {
-    Keyboard.dismiss();
-    setMode(next);
-  }
+  useEffect(() => {
+    if (!showSplash) return;
+    const timer = setTimeout(() => {
+      introPlayed = true;
+      setShowSplash(false);
+    }, 1700);
+    return () => clearTimeout(timer);
+  }, [showSplash]);
 
-  return (
-    <KeyboardAvoidingView behavior="padding" style={styles.screen}>
-      <StatusBar style="light" />
-      <Animated.View entering={landscapeOpening} pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <Image source={require('../assets/lake.jpg')} style={StyleSheet.absoluteFill} contentFit="cover"
-          contentPosition="center" />
-      </Animated.View>
-      <Svg pointerEvents="none" width="100%" height="100%" style={StyleSheet.absoluteFill}>
-        <Defs>
-          <LinearGradient id="landscapeShade" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#0B2119" stopOpacity={0.36} />
-            <Stop offset="0.58" stopColor="#0B2119" stopOpacity={0.08} />
-            <Stop offset="1" stopColor="#0B2119" stopOpacity={0.9} />
-          </LinearGradient>
-        </Defs>
-        <Rect width="100%" height="100%" fill="url(#landscapeShade)" />
-      </Svg>
+  if (session || guest || !backend) return <Redirect href="/" />;
+
+  return <View style={[layout.screen, { backgroundColor: p.bg }]}>
+    <StatusBar style={p.dark ? 'light' : 'dark'} />
+    <KeyboardAvoidingView behavior="padding" style={layout.screen}>
       <ScrollView keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="never"
-        contentContainerStyle={[styles.scroll, { paddingTop: inset.top }]} showsVerticalScrollIndicator={false}>
-        <Animated.View layout={resize} style={[styles.hero, form && styles.heroCompact]}>
-          {!form && <Animated.View entering={fade} style={styles.identity}>
-            <Image source={require('../assets/icon.png')} style={styles.logo} />
-            <Text accessibilityRole="header" style={styles.brand}>{t.app}</Text>
-          </Animated.View>}
-        </Animated.View>
-        <Animated.View entering={opening} layout={resize} style={[styles.panel, {
-          backgroundColor: p.bg, paddingBottom: Math.max(inset.bottom, side),
+        accessibilityElementsHidden={showSplash} importantForAccessibility={showSplash ? 'no-hide-descendants' : 'auto'}
+        scrollEnabled={!showSplash} contentContainerStyle={layout.scroll} showsVerticalScrollIndicator={false}>
+        <View style={{ height: Math.max(184, Math.min(height * 0.38, 340)), backgroundColor: p.dark ? '#263B30' : '#F3EADB' }}>
+          <EntryIllustration dark={p.dark} />
+        </View>
+        <View style={[layout.sheet, {
+          backgroundColor: p.dark ? p.bg : p.surface, paddingBottom: Math.max(side, inset.bottom) + 8,
         }]}>
-          {!form ? <Animated.View entering={switchForm} style={styles.actions}>
-            <Button label={t.signIn} primary onPress={() => change('signIn')} />
-            <Button label={t.signUp} onPress={() => change('signUp')} />
-            <Button label={t.continueAsGuest} onPress={continueAsGuest} />
-          </Animated.View> : <Animated.View key={mode} entering={switchForm} style={styles.actions}>
-            <View style={styles.formHeading}>
-              <IconButton name="chevron-back" label={t.back} align="start" onPress={() => change('start')} />
-              <Text accessibilityRole="header" style={[styles.heading, { color: p.ink }]}>{t[mode]}</Text>
-            </View>
-            <EmailAuthForm mode={mode} />
-            <Button label={mode === 'signIn' ? t.signUp : t.signIn} onPress={() => change(mode === 'signIn' ? 'signUp' : 'signIn')} />
-          </Animated.View>}
-        </Animated.View>
+          <View style={layout.form}>
+            <Text accessibilityRole="header" style={[layout.title, { color: p.ink }]}>
+              {mode === 'signIn' ? t.welcomeBack : mode === 'signUp' ? t.signUp : t.resetPassword}
+            </Text>
+            <EmailAuthForm mode={mode} onModeChange={setMode} />
+            <Pressable accessibilityRole="button" onPress={continueAsGuest} style={layout.guest}>
+              <Text style={[layout.guestLabel, { color: p.accent }]}>{t.continueAsGuest} →</Text>
+            </Pressable>
+          </View>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
-  );
+    {showSplash && <Animated.View entering={reveal} exiting={dismiss}
+      style={[StyleSheet.absoluteFill, layout.splash, { backgroundColor: p.dark ? p.bg : '#FFFFFF' }]}>
+      <View style={layout.splashArt}><EntryIllustration splash dark={p.dark} /></View>
+      <Text accessibilityRole="header" accessibilityLabel={t.app} style={[layout.brand, { color: p.ink }]}>
+        {t.brandTrail}<Text style={{ color: p.accent }}>{t.brandCatch}</Text>
+      </Text>
+      <Text style={[layout.subtitle, { color: p.muted }]}>{t.splashSubtitle}</Text>
+    </Animated.View>}
+  </View>;
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#132A22' },
+const layout = StyleSheet.create({
+  screen: { flex: 1 },
   scroll: { flexGrow: 1 },
-  hero: { flexGrow: 1, minHeight: 280, justifyContent: 'flex-end', padding: side + 4 },
-  heroCompact: { minHeight: 48, flexGrow: 1 },
-  identity: { alignItems: 'flex-start', gap: 12, paddingBottom: 12 },
-  logo: { width: 56, height: 56, borderRadius: 14 },
-  brand: { fontSize: 44, fontWeight: '800', color: onBrand, letterSpacing: -1.8 },
-  panel: { paddingHorizontal: side, paddingTop: 24, borderTopLeftRadius: 28, borderTopRightRadius: 28 },
-  actions: { gap: 12 },
-  formHeading: { flexDirection: 'row', alignItems: 'center' },
-  heading: { flex: 1, fontSize: 25, fontWeight: '800' },
+  sheet: { flexGrow: 1, marginTop: -29, borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    paddingTop: 24, paddingHorizontal: side },
+  form: { width: '100%', maxWidth: 440, alignSelf: 'center', gap: 14 },
+  title: { fontSize: 29, fontWeight: '800', letterSpacing: -0.7 },
+  guest: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 },
+  guestLabel: { fontSize: 14, fontWeight: '700' },
+  splash: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: side, gap: 7, zIndex: 5 },
+  splashArt: { width: '100%', maxWidth: 340, aspectRatio: 400 / 268 },
+  brand: { fontSize: 44, fontWeight: '800', letterSpacing: -1.7 },
+  subtitle: { fontSize: 13, textAlign: 'center' },
 });

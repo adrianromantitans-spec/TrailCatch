@@ -44,7 +44,7 @@ supabase functions deploy report-email
 supabase functions deploy notify-push
 ```
 
-Habilita Google como proveedor de Supabase Auth y registra la URL de retorno de la app, `trailcatch://account` en una compilación instalada. La confirmación por correo requiere que el envío esté configurado en el proyecto.
+Habilita Google y Apple como proveedores de Supabase Auth para usar esos botones. En **Authentication → URL Configuration → Redirect URLs**, autoriza `trailcatch://account` para OAuth y `trailcatch://reset-password` para recuperar contraseñas en la app instalada. En Expo Go, las URLs de retorno usan la dirección del túnel y el sufijo correspondiente `/--/account` o `/--/reset-password`. La confirmación por correo requiere que el envío esté configurado en el proyecto.
 
 Para los webhooks, guarda los siguientes nombres en Supabase Vault.
 

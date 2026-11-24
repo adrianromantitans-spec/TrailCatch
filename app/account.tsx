@@ -12,7 +12,7 @@ export default function Account() {
   const router = useRouter();
   const p = usePalette();
   const inset = useSafeAreaInsets();
-  const { session, loading } = useSession();
+  const { session, loading, resetGuest } = useSession();
   const userId = session?.user.id;
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
@@ -50,14 +50,15 @@ export default function Account() {
         const { error } = await backend.functions.invoke('delete-account', { method: 'POST' });
         if (error) throw error;
         await backend.auth.signOut({ scope: 'local' });
-        router.back();
+        resetGuest();
+        router.replace('/welcome');
       }) },
     ]);
   }
 
   const client = backend;
   return <>
-    <Header title={t.account} back={() => router.back()} />
+    <Header title={t.account} back={() => router.canGoBack() ? router.back() : router.replace('/')} />
     {!client ? <Notice message={t.backendUnavailable} /> : loading ? <Notice message={t.loading} loading /> :
       <ScrollView style={styles.screen} keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.content, { paddingBottom: inset.bottom + side }]}>
@@ -81,6 +82,8 @@ export default function Account() {
             await unregisterPush();
             const result = await client.auth.signOut();
             if (result.error) throw result.error;
+            resetGuest();
+            router.replace('/welcome');
           })} />
           <Button label={t.removeAccount} danger disabled={busy} onPress={removeAccount} />
         </> : <EmailAuthForm />}

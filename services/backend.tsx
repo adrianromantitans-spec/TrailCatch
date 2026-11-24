@@ -11,13 +11,36 @@ import { AppState } from 'react-native';
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
+const sessionKey = url ? `sb-${new URL(url).hostname.split('.')[0]}-auth-token` : '';
+let rememberSession = true;
+let sessionInMemory: string | null = null;
+
+const authStorage = {
+  getItem: (name: string) => name === sessionKey && !rememberSession ? sessionInMemory : Storage.getItem(name),
+  async setItem(name: string, value: string) {
+    if (name === sessionKey && !rememberSession) {
+      sessionInMemory = value;
+      await Storage.removeItem(name);
+    } else await Storage.setItem(name, value);
+  },
+  async removeItem(name: string) {
+    if (name === sessionKey) sessionInMemory = null;
+    await Storage.removeItem(name);
+  },
+};
+
+export function setSessionPersistence(remember: boolean) {
+  rememberSession = remember;
+}
+
 export const backend = url && key ? createClient(url, key, {
-  auth: { storage: Storage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'pkce' },
+  auth: { storage: authStorage, storageKey: sessionKey, persistSession: true, autoRefreshToken: true,
+    detectSessionInUrl: false, flowType: 'pkce' },
 }) : null;
 
 const AuthContext = createContext<{
-  session: Session | null; loading: boolean; guest: boolean; continueAsGuest: () => void;
-}>({ session: null, loading: false, guest: false, continueAsGuest: () => {} });
+  session: Session | null; loading: boolean; guest: boolean; continueAsGuest: () => void; resetGuest: () => void;
+}>({ session: null, loading: false, guest: false, continueAsGuest: () => {}, resetGuest: () => {} });
 export const useSession = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -43,14 +66,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
       client.auth.stopAutoRefresh();
     };
   }, []);
-  return <AuthContext.Provider value={{ session, loading, guest, continueAsGuest: () => setGuest(true) }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ session, loading, guest, continueAsGuest: () => setGuest(true), resetGuest: () => setGuest(false) }}>{children}</AuthContext.Provider>;
 }
 
-export async function signInWithGoogle() {
-  if (!backend) return;
+export class ProviderUnavailable extends Error {}
+
+export async function signInWithProvider(provider: 'google' | 'apple') {
+  if (!backend || !url || !key) return;
+  const settings = await fetch(new URL('auth/v1/settings', url.endsWith('/') ? url : `${url}/`).href, {
+    headers: { apikey: key },
+  });
+  if (settings.ok) {
+    const { external } = await settings.json() as { external?: Partial<Record<'google' | 'apple', boolean>> };
+    if (external?.[provider] === false) throw new ProviderUnavailable();
+  }
   const redirectTo = createURL('account');
   const { data, error } = await backend.auth.signInWithOAuth({
-    provider: 'google', options: { redirectTo, skipBrowserRedirect: true },
+    provider, options: { redirectTo, skipBrowserRedirect: true },
   });
   if (error) throw error;
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
@@ -59,4 +91,10 @@ export async function signInWithGoogle() {
   if (!code) throw new Error('OAuth callback omitted code');
   const exchange = await backend.auth.exchangeCodeForSession(code);
   if (exchange.error) throw exchange.error;
+}
+
+export async function requestPasswordReset(email: string) {
+  if (!backend) return;
+  const { error } = await backend.auth.resetPasswordForEmail(email, { redirectTo: createURL('reset-password') });
+  if (error) throw error;
 }
