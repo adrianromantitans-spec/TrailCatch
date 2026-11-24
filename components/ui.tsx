@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, TextInputProps, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../i18n';
 
@@ -9,16 +9,11 @@ export const brandGreen = '#255A46';
 export const onBrand = '#FFFFFF';
 
 const light = {
-  dark: false, bg: '#F9FAF7', surface: '#FFFFFF', ink: '#182723', muted: '#526762',
-  line: '#DFE8E2', accent: brandGreen, water: '#28687C', soft: '#E7F1EB', danger: '#9E383D',
-  glass: '#FFFFFFC7', glassSolid: '#FAFCF7F5',
+  dark: false, bg: '#FFFFFF', surface: '#FFFFFF', ink: '#182723', muted: '#526762',
+  line: '#D8E5DC', accent: brandGreen, soft: '#E7F1EB', field: '#F3F8F4', danger: '#9E383D',
+  glass: '#FFFFFFD9', glassSolid: '#FFFFFFF5',
 };
-const dark = {
-  dark: true, bg: '#121A18', surface: '#1B2723', ink: '#F0F6F2', muted: '#AEC1B7',
-  line: '#34473E', accent: '#9DD7B9', water: '#9AD6E8', soft: '#233F33', danger: '#FF9EA3',
-  glass: '#1B2723B8', glassSolid: '#1B2723F5',
-};
-export const usePalette = () => useColorScheme() === 'dark' ? dark : light;
+export const usePalette = () => light;
 export const side = 20;
 
 // Style callbacks must reach the native Pressable unchanged to keep the pressed and resting styles.
@@ -41,8 +36,8 @@ export function Header({ title, back, children }: { title: string; back?: () => 
   const inset = useSafeAreaInsets();
   return (
     <View style={[styles.header, { paddingTop: inset.top + 4, backgroundColor: p.bg, borderColor: p.line }]}>
-      {back && <IconButton name="chevron-back" align="start" label={t.back} onPress={back} />}
-      <Text accessibilityRole="header" numberOfLines={2} style={[styles.headerText, { color: p.ink }]}>{title}</Text>
+      {back && <IconButton name="chevron-back" align="start" label={t.back} color={p.accent} onPress={back} />}
+      <Text accessibilityRole="header" numberOfLines={2} style={[styles.headerText, { color: p.accent }]}>{title}</Text>
       {children}
     </View>
   );
@@ -75,8 +70,8 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
   return (
     <View style={{ gap: 8 }}>
       <Text style={[styles.fieldLabel, { color: p.muted }]}>{label}</Text>
-      <TextInput accessibilityLabel={label} placeholderTextColor={p.muted} {...props}
-        style={[styles.input, { color: p.ink, borderColor: p.line, backgroundColor: p.surface },
+      <TextInput accessibilityLabel={label} keyboardAppearance="light" placeholderTextColor={p.muted} {...props}
+        style={[styles.input, { color: p.ink, borderColor: p.line, backgroundColor: p.field },
           props.multiline && { minHeight: 90, textAlignVertical: 'top' }, props.style]} />
     </View>
   );

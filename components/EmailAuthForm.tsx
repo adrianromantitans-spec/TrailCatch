@@ -19,11 +19,11 @@ export function AuthInput({ icon, label, password, ...props }: TextInputProps & 
   const [visible, setVisible] = useState(false);
 
   return <View style={[form.inputFrame, {
-    backgroundColor: p.dark ? p.surface : '#F2F4F1',
+    backgroundColor: p.field,
     borderColor: focused ? p.accent : p.line,
   }]}>
     <Ionicons name={icon} size={20} color={p.muted} />
-    <TextInput {...props} accessibilityLabel={label} placeholder={label} placeholderTextColor={p.muted}
+    <TextInput keyboardAppearance="light" {...props} accessibilityLabel={label} placeholder={label} placeholderTextColor={p.muted}
       secureTextEntry={password && !visible}
       onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
       style={[form.input, { color: p.ink }]} />
@@ -128,7 +128,7 @@ export function EmailAuthForm({ mode: supplied, onModeChange }: { mode?: AuthMod
       <View style={styles.columns}>
         {(['google', 'apple'] as const).map((provider) => <Pressable key={provider} cssInterop={false}
           accessibilityRole="button" disabled={!!pending}
-          style={({ pressed }) => [form.provider, { backgroundColor: pressed ? p.soft : p.dark ? p.surface : '#F2F4F1' }]}
+          style={({ pressed }) => [form.provider, { backgroundColor: pressed ? p.soft : p.field }]}
           onPress={() => void submit(provider)}>
           <Ionicons name={provider === 'google' ? 'logo-google' : 'logo-apple'} size={19} color={p.ink} />
           <Text numberOfLines={1} style={[form.providerLabel, { color: p.ink }]}>{pending === provider ? t.loading : t[provider]}</Text>

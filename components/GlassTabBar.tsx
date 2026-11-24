@@ -141,18 +141,18 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
       <Animated.View style={[styles.shadow, frame]}>
         <Animated.View style={[styles.pill, corners, {
           backgroundColor: nativeGlass ? 'transparent' : blur ? p.glass : p.glassSolid,
-          borderColor: nativeGlass ? (p.dark ? '#FFFFFF29' : '#FFFFFF73') : (p.dark ? '#FFFFFF33' : '#FFFFFFEA'),
+          borderColor: nativeGlass ? '#FFFFFFA6' : p.line,
         }]}>
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            {nativeGlass ? <GlassView glassEffectStyle="regular" colorScheme={p.dark ? 'dark' : 'light'}
-                tintColor={p.dark ? '#15281F26' : '#FFFFFF48'} style={StyleSheet.absoluteFill} />
+            {nativeGlass ? <GlassView glassEffectStyle="regular" colorScheme="light"
+                tintColor="#FFFFFF66" style={StyleSheet.absoluteFill} />
               : blur && <BlurView key={active} blurTarget={target}
                 experimentalBlurMethod="dimezisBlurView"
-                tint={p.dark ? 'dark' : 'light'} intensity={35} style={StyleSheet.absoluteFill} />}
+                tint="light" intensity={35} style={StyleSheet.absoluteFill} />}
           </View>
           <View style={styles.tabRow}>
             {width > 0 && <Animated.View pointerEvents="none" style={[styles.indicator,
-              { backgroundColor: nativeGlass ? (p.dark ? '#BBEBD226' : '#255A4617') : p.soft }, indicator]} />}
+              { backgroundColor: nativeGlass ? '#E7F1EBD9' : p.soft }, indicator]} />}
             {tab('index')}
             {tab('map')}
             <Pressable accessibilityRole="button" accessibilityLabel={t.create} style={styles.slot}

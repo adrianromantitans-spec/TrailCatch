@@ -46,7 +46,7 @@ export default function Stats() {
             {stats.months.map((value, index) => <View key={index} style={[styles.row, { flexWrap: 'nowrap' }]}>
               <Text style={{ color: p.muted, minWidth: 40 }}>{month(index, 'short')}</Text>
               <View style={{ flex: 1, height: 8, backgroundColor: p.soft, borderRadius: 4 }}>
-                <View style={{ width: `${value / max * 100}%`, flex: 1, backgroundColor: p.water, borderRadius: 4 }} />
+                <View style={{ width: `${value / max * 100}%`, flex: 1, backgroundColor: p.accent, borderRadius: 4 }} />
               </View>
               <Text style={{ color: p.ink, minWidth: 24, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{value}</Text>
             </View>)}

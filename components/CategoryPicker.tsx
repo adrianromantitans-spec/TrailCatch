@@ -36,6 +36,7 @@ function CategoryIcon({ option, color, size }: { option: Option; color: string; 
 function CategoryCard({ option, selected, width, disabled, onPress }: {
   option: Option; selected: boolean; width?: number; disabled?: boolean; onPress: () => void;
 }) {
+  const p = usePalette();
   const scale = useSharedValue(1);
   const motion = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   useEffect(() => {
@@ -51,8 +52,8 @@ function CategoryCard({ option, selected, width, disabled, onPress }: {
       <Pressable cssInterop={false} accessibilityRole="radio" accessibilityState={{ checked: selected, disabled }}
         disabled={disabled} onPress={onPress}
         style={({ pressed }) => [styles.card, {
-          backgroundColor: selected ? brandGreen : pressed ? '#E7F1EB' : '#FFFFFF',
-          borderColor: selected ? brandGreen : '#D4DFD8',
+          backgroundColor: selected ? brandGreen : pressed ? p.soft : p.surface,
+          borderColor: selected ? brandGreen : p.line,
         }]}>
         <CategoryIcon option={option} size={22} color={color} />
         <Text numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85} maxFontSizeMultiplier={1.25}
@@ -92,7 +93,8 @@ export function CategoryPicker(props: Props) {
 }
 
 export function CategoryBadge({ type }: { type: OutingType }) {
-  return <View style={styles.badge}>
+  const p = usePalette();
+  return <View style={[styles.badge, { backgroundColor: p.soft }]}>
     <CategoryIcon option={type} size={14} color={brandGreen} />
     <Text style={[styles.badgeLabel, { color: brandGreen }]}>{t[type]}</Text>
   </View>;
@@ -108,6 +110,6 @@ const styles = StyleSheet.create({
   iconPair: { flexDirection: 'row', alignItems: 'center', gap: 1 },
   label: { textAlign: 'center', fontSize: 13, fontWeight: '700', maxWidth: '100%' },
   badge: { alignSelf: 'flex-start', maxWidth: '100%', flexDirection: 'row', alignItems: 'center',
-    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, gap: 4, backgroundColor: '#E7F1EB' },
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, gap: 4 },
   badgeLabel: { fontSize: 12, fontWeight: '600', flexShrink: 1 },
 });

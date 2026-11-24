@@ -1,5 +1,5 @@
 import '../global.css';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { Component, ReactNode } from 'react';
@@ -23,10 +23,12 @@ class DatabaseBoundary extends Component<{ children: ReactNode }, { failed: bool
 
 export default function RootLayout() {
   const p = usePalette();
+  const theme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, primary: p.accent, background: p.bg,
+    card: p.surface, text: p.ink, border: p.line, notification: p.danger } };
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: p.bg }}>
-      <ThemeProvider value={p.dark ? DarkTheme : DefaultTheme}>
-        <StatusBar style={p.dark ? 'light' : 'dark'} />
+      <ThemeProvider value={theme}>
+        <StatusBar style="dark" />
         <AuthProvider>
           <DatabaseBoundary>
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: p.bg }, animation: 'fade_from_bottom' }}>
