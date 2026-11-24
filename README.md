@@ -37,7 +37,7 @@ Configura `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` en
 Aplica las migraciones en orden a un proyecto Supabase con PostgreSQL 15 o superior y PostGIS. Desde un equipo con Supabase CLI autenticado y acceso al proyecto:
 
 ```bash
-supabase link --project-ref xvtqmmpufvmyuokpmjvf
+supabase link --project-ref qvpdedovvbztyfsaznil
 supabase db push
 supabase functions deploy delete-account
 supabase functions deploy report-email
