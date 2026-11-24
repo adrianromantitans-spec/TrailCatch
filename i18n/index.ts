@@ -41,6 +41,9 @@ const es = {
   privacyBody: 'Tu diario y tus fotos se guardan en el dispositivo. Si consultas las condiciones, se envían las coordenadas y la fecha a Open-Meteo. El mapa solicita teselas para la zona visible. Puedes exportar o borrar tu diario desde Perfil.',
   termsBody: 'Utiliza TrailCatch respetando las normas locales, las licencias de pesca y el acceso a espacios naturales. Comprueba las condiciones antes de salir.',
   units: { km: 'km', min: 'min', m: 'm', kg: 'kg', cm: 'cm', wind: 'km/h', pressure: 'hPa', rain: 'mm', temp: '°C' },
+  yesterday: 'ayer', today: 'hoy', tomorrow: 'mañana',
+  daysAgo: (days: number) => `hace ${days} días`,
+  inDays: (days: number) => `dentro de ${days} días`,
   likes: (count: number) => count === 1 ? '1 Me gusta' : `${count} Me gusta`,
 };
 
@@ -53,6 +56,15 @@ export function relativeDate(date: string) {
   const now = new Date();
   const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
   const days = Math.round((Date.UTC(year, month - 1, day) - today) / 86400000);
-  if (Math.abs(days) <= 30) return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(days, 'day');
+  if (Math.abs(days) <= 30) {
+    // Some Expo Go runtimes provide date formatting but omit RelativeTimeFormat.
+    if (typeof Intl.RelativeTimeFormat === 'function') {
+      return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(days, 'day');
+    }
+    if (days === -1) return t.yesterday;
+    if (days === 0) return t.today;
+    if (days === 1) return t.tomorrow;
+    return days < 0 ? t.daysAgo(-days) : t.inDays(days);
+  }
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(Date.UTC(year, month - 1, day));
 }
