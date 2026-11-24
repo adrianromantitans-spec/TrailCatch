@@ -33,6 +33,17 @@ const es = {
   personal: 'Mi diario', outings: 'Salidas', followers: 'Seguidores', following: 'Seguidos',
   saved: 'Guardados', all: 'Todas', searchPlaceholder: 'Buscar salidas por título o notas',
   standard: 'Estándar', satellite: 'Satélite', terrain: 'Relieve', osm: '© OpenStreetMap contributors',
+  discoverMap: 'Explorar mapa', mappedTrails: 'Senderos', mappedFishing: 'Pesca', unnamedTrail: 'Sendero',
+  fishingPlace: 'Lugar de pesca', searchMapArea: 'Buscar en esta zona', zoomDiscovery: 'Acerca el mapa para buscar en esta zona.',
+  discoverMapError: 'No se pudieron consultar los datos del mapa. Vuelve a intentarlo.',
+  noMappedTrails: 'No hay senderos registrados en esta zona del mapa.',
+  noMappedFishing: 'No hay lugares señalados para pescar en esta zona del mapa.',
+  selectMapFeature: 'Toca un marcador para ver cómo llegar.', closeMapFeature: 'Cerrar ficha del lugar',
+  trailAccessWarning: 'El marcador señala un punto del sendero. Comprueba el acceso y el estado del camino antes de salir.',
+  fishingMapWarning: 'Comprueba el acceso, las vedas y la licencia de pesca antes de ir.',
+  fishingMapPermit: 'El mapa indica que hace falta un permiso. Comprueba los requisitos locales antes de ir.',
+  viewMapArea: 'Ver zona en Maps', directionsToTrail: 'Cómo llegar al sendero',
+  mapLocationDenied: 'Permite el acceso a la ubicación para centrar el mapa cerca de ti.',
   weather: 'Condiciones', temperature: 'Temperatura', wind: 'Viento', rain: 'Lluvia', pressure: 'Presión',
   moon: 'Fase lunar', sunrise: 'Amanecer', sunset: 'Atardecer', estimatedMoon: 'Fase lunar estimada',
   moonPhases: ['Luna nueva', 'Creciente', 'Cuarto creciente', 'Gibosa creciente', 'Luna llena', 'Gibosa menguante', 'Cuarto menguante', 'Menguante'],
@@ -92,7 +103,31 @@ const es = {
   likes: (count: number) => count === 1 ? '1 Me gusta' : `${count} Me gusta`,
 };
 
-const translations: Record<Locale, Partial<typeof es>> = { es, en: {}, ro: {} };
+const translations: Record<Locale, Partial<typeof es>> = {
+  es,
+  en: {
+    discoverMap: 'Explore map', mappedTrails: 'Trails', mappedFishing: 'Fishing', unnamedTrail: 'Trail',
+    fishingPlace: 'Fishing spot', searchMapArea: 'Search this area', zoomDiscovery: 'Zoom in to search this area.',
+    discoverMapError: 'Could not load map data. Try again.', noMappedTrails: 'No trails are mapped in this area.',
+    noMappedFishing: 'No fishing spots are marked in this area.', selectMapFeature: 'Tap a marker for directions.',
+    closeMapFeature: 'Close place details', trailAccessWarning: 'The marker shows a point on the trail. Check access and trail conditions before you go.',
+    fishingMapWarning: 'Check access, closures and fishing licence requirements before you go.',
+    fishingMapPermit: 'The map indicates a permit is required. Check local requirements before you go.',
+    viewMapArea: 'View area in Maps', directionsToTrail: 'Directions to the trail',
+    mapLocationDenied: 'Allow location access to centre the map near you.',
+  },
+  ro: {
+    discoverMap: 'Explorează harta', mappedTrails: 'Trasee', mappedFishing: 'Pescuit', unnamedTrail: 'Traseu',
+    fishingPlace: 'Loc de pescuit', searchMapArea: 'Caută în această zonă', zoomDiscovery: 'Mărește harta pentru a căuta în zonă.',
+    discoverMapError: 'Datele hărții nu au putut fi încărcate. Încearcă din nou.', noMappedTrails: 'Nu sunt trasee înregistrate pe hartă în această zonă.',
+    noMappedFishing: 'Nu sunt locuri de pescuit marcate în această zonă.', selectMapFeature: 'Atinge un marcaj pentru indicații.',
+    closeMapFeature: 'Închide detaliile locului', trailAccessWarning: 'Marcajul indică un punct pe traseu. Verifică accesul și starea traseului înainte de plecare.',
+    fishingMapWarning: 'Verifică accesul, perioadele de prohibiție și permisul de pescuit înainte de plecare.',
+    fishingMapPermit: 'Harta indică faptul că ai nevoie de permis. Verifică cerințele locale înainte de plecare.',
+    viewMapArea: 'Vezi zona în Maps', directionsToTrail: 'Cum ajungi la traseu',
+    mapLocationDenied: 'Permite accesul la locație pentru a centra harta în apropierea ta.',
+  },
+};
 export const locale: Locale = 'es';
 export const t = { ...es, ...translations[locale] };
 

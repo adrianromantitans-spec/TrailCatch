@@ -26,7 +26,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "TrailCatch usa tu ubicación para marcar el lugar de la salida."
+          "locationWhenInUsePermission": "TrailCatch usa tu ubicación para marcar salidas y buscar senderos y lugares de pesca cerca de ti."
         }
       ],
       [
