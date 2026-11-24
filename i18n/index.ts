@@ -31,6 +31,9 @@ const es = {
   sampleFishingNotes: 'Salida de mañana desde la orilla.', sampleHike: 'Ruta por los montes Apuseni',
   sampleHikeNotes: 'Recorrido por el bosque y las praderas.', sampleFish: 'Perca', sampleBait: 'Cucharilla',
   personal: 'Mi diario', outings: 'Salidas', followers: 'Seguidores', following: 'Seguidos',
+  editProfile: 'Editar perfil', diaryHandle: 'mi.diario', largestCatch: 'Mayor captura', lastOuting: 'Última salida',
+  addFirstOuting: 'Añadir mi primera salida', noCatchPhotos: 'Aún no hay fotos de capturas.',
+  noSavedOutings: 'Aún no hay salidas guardadas.', savedPosts: 'Publicaciones guardadas',
   saved: 'Guardados', all: 'Todas', searchPlaceholder: 'Buscar salidas por título o notas',
   standard: 'Estándar', satellite: 'Satélite', terrain: 'Relieve', osm: '© OpenStreetMap contributors',
   discoverMap: 'Explorar mapa', mappedTrails: 'Senderos', mappedFishing: 'Pesca', unnamedTrail: 'Sendero',
@@ -106,6 +109,9 @@ const es = {
 const translations: Record<Locale, Partial<typeof es>> = {
   es,
   en: {
+    editProfile: 'Edit profile', diaryHandle: 'my.diary', largestCatch: 'Biggest catch', lastOuting: 'Latest outing',
+    addFirstOuting: 'Add my first outing', noCatchPhotos: 'No catch photos yet.',
+    noSavedOutings: 'No saved outings yet.', savedPosts: 'Saved posts',
     discoverMap: 'Explore map', mappedTrails: 'Trails', mappedFishing: 'Fishing', unnamedTrail: 'Trail',
     fishingPlace: 'Fishing spot', searchMapArea: 'Search this area', zoomDiscovery: 'The map will zoom in and search around the centre.',
     discoverMapError: 'Could not load map data. Try again.', noMappedTrails: 'No trails are mapped in this area.',
@@ -117,6 +123,9 @@ const translations: Record<Locale, Partial<typeof es>> = {
     mapLocationDenied: 'Allow location access to centre the map near you.',
   },
   ro: {
+    editProfile: 'Editează profilul', diaryHandle: 'jurnalul.meu', largestCatch: 'Cea mai mare captură', lastOuting: 'Ultima ieșire',
+    addFirstOuting: 'Adaugă prima ieșire', noCatchPhotos: 'Încă nu sunt fotografii cu capturi.',
+    noSavedOutings: 'Încă nu sunt ieșiri salvate.', savedPosts: 'Postări salvate',
     discoverMap: 'Explorează harta', mappedTrails: 'Trasee', mappedFishing: 'Pescuit', unnamedTrail: 'Traseu',
     fishingPlace: 'Loc de pescuit', searchMapArea: 'Caută în această zonă', zoomDiscovery: 'Harta se va mări pentru a căuta în jurul centrului.',
     discoverMapError: 'Datele hărții nu au putut fi încărcate. Încearcă din nou.', noMappedTrails: 'Nu sunt trasee înregistrate pe hartă în această zonă.',

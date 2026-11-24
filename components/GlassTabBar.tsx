@@ -15,6 +15,7 @@ const barHeight = 68;
 const compactBarHeight = 54;
 const compactSideInset = 12;
 const tabCount = 5;
+const pillInset = 6;
 const barBottom = (inset: number) => Math.max(inset, 8) + 8;
 
 export function useTabClearance() {
@@ -83,13 +84,13 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
   const homeCompact = context?.homeCompact;
   const width = Math.max(0, useWindowDimensions().width - inset.left - inset.right - side * 2);
   const active = state.routes[state.index]?.name as TabName;
-  const selectedSlot = useSharedValue(0);
-  const scale = useSharedValue(1);
   const position = tabNames.indexOf(active);
-  const slotIndex = position < 2 ? position : position + 1;
+  const slotIndex = Math.max(0, position < 2 ? position : position + 1);
+  const selectedSlot = useSharedValue(slotIndex);
+  const scale = useSharedValue(1);
 
   useEffect(() => {
-    selectedSlot.set(withSpring(Math.max(0, slotIndex), { reduceMotion: ReduceMotion.System }));
+    selectedSlot.set(withSpring(slotIndex, { overshootClamping: true, reduceMotion: ReduceMotion.System }));
   }, [selectedSlot, slotIndex]);
 
   const compact = useDerivedValue(() => withTiming(active === 'index' && homeCompact?.get() ? 1 : 0, {
@@ -104,15 +105,23 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
   const corners = useAnimatedStyle(() => ({ borderRadius: (barHeight - (barHeight - compactBarHeight) * compact.get()) / 2 }));
   const indicator = useAnimatedStyle(() => {
     const slot = Math.max(0, width - 2 - 2 * maxInset * compact.get()) / tabCount;
-    return { width: Math.max(0, slot - 8), transform: [{ translateX: selectedSlot.get() * slot }] };
+    return { width: Math.max(0, slot - 2 * pillInset), transform: [{ translateX: selectedSlot.get() * slot }] };
   });
-  const labelMotion = useAnimatedStyle(() => ({
-    opacity: 1 - compact.get(), transform: [{ translateY: compact.get() * 5 }],
-  }));
+  const labelMotion = useAnimatedStyle(() => {
+    const visible = 1 - compact.get();
+    return { opacity: visible, height: 16 * visible, marginTop: 2 * visible };
+  });
   const plus = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() * (1 - compact.get() * 0.09) }] }));
   const nativeGlass = Platform.OS === 'ios' && isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
   const blur = Platform.OS === 'ios' || (Platform.OS === 'android' && Number(Platform.Version) >= 31);
   const target = context?.targets[active];
+
+  function caption(label: string, color: string) {
+    return <Animated.View style={[styles.caption, labelMotion]}>
+      <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.2}
+        style={[styles.label, { color }]}>{label}</Animated.Text>
+    </Animated.View>;
+  }
 
   function tab(name: TabName) {
     const route = state.routes.find((item) => item.name === name);
@@ -128,9 +137,7 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
           if (!selected && !event.defaultPrevented) navigateToTab(route.key);
         }}>
         <View style={styles.tabIcon}><Ionicons name={icons[name]} size={23} color={selected ? p.accent : p.muted} /></View>
-        {selected && <Animated.Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[styles.label, labelMotion, { color: p.accent }]}>
-          {label}
-        </Animated.Text>}
+        {caption(label, selected ? p.accent : p.muted)}
       </Pressable>
     );
   }
@@ -155,7 +162,7 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
               { backgroundColor: nativeGlass ? '#E7F1EBD9' : p.soft }, indicator]} />}
             {tab('index')}
             {tab('map')}
-            <Pressable accessibilityRole="button" accessibilityLabel={t.create} style={styles.slot}
+            <Pressable accessibilityRole="button" accessibilityLabel={t.createMenu} style={styles.slot}
               onPressIn={() => { scale.set(withSpring(0.88)); }}
               onPressOut={() => { scale.set(withSpring(1)); }}
               onPress={() => {
@@ -163,8 +170,9 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
                 onCreate();
               }}>
               <Animated.View style={[styles.plus, { backgroundColor: brandGreen }, plus]}>
-                <Ionicons name="add" size={29} color={onBrand} />
+                <Ionicons name="add" size={24} color={onBrand} />
               </Animated.View>
+              {caption(t.createMenu, p.accent)}
             </Pressable>
             {tab('explore')}
             {tab('profile')}
@@ -182,10 +190,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 5 } },
   pill: { flex: 1, borderWidth: 1, overflow: 'hidden' },
   tabRow: { flex: 1, flexDirection: 'row' },
-  tabIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
-  slot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  indicator: { position: 'absolute', top: 5, bottom: 3, left: 4, borderRadius: 28 },
-  label: { position: 'absolute', left: 2, right: 2, bottom: 3, fontSize: 10,
-    lineHeight: 14, includeFontPadding: false, textAlign: 'center', fontWeight: '700' },
-  plus: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  tabIcon: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  slot: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' },
+  indicator: { position: 'absolute', top: pillInset, bottom: pillInset, left: pillInset, borderRadius: 28 },
+  caption: { alignSelf: 'stretch', overflow: 'hidden', justifyContent: 'center', paddingHorizontal: 2 },
+  label: { fontSize: 11, includeFontPadding: false, textAlign: 'center', fontWeight: '700' },
+  plus: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
 });
