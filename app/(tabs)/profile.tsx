@@ -348,6 +348,7 @@ export default function Profile() {
         <View pointerEvents="box-none" style={[profileStyles.menuAnchor, { bottom: tabClearance }]}>
           <ScrollView accessibilityRole="menu" accessibilityViewIsModal onAccessibilityEscape={() => setMenuOpen(false)}
             style={[profileStyles.menu, { backgroundColor: p.surface }]} bounces={false}>
+            {menuItem(t.searchDiary, 'search-outline', () => router.push('/diary-search'))}
             {menuItem(t.export, 'download-outline', () => void exportData(), false, busy)}
             {viewer && menuItem(t.posts, 'images-outline', () => router.push({ pathname: '/user/[id]', params: { id: viewer } }))}
             {menuItem(t.account, 'person-circle-outline', () => router.push('/account'))}

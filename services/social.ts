@@ -4,6 +4,7 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import type { OutingType, Photo, Point } from '../db/model';
 import { backend } from './backend';
 import { photoFile } from './photos';
+import { stripVideoMetadata } from './videoMetadata';
 
 export type Profile = { id: string; display_name: string; avatar_url: string | null; bio?: string };
 type TripPreview = { title: string; type: OutingType; distance?: number };
@@ -13,11 +14,15 @@ export type PostRow = {
   caption: string; created_at: string; likes_count: number; comments_count: number;
 };
 export type PostPhoto = { id: string; uri: string; thumbnail?: string };
+export type PostVideo = { uri: string; durationMs: number };
+export type ReelAsset = PostVideo & { extension: 'mp4' | 'mov' };
 export type SocialPost = PostRow & {
-  author?: Profile; photos: PostPhoto[]; liked: boolean; saved: boolean; followed: boolean;
+  author?: Profile; photos: PostPhoto[]; video?: PostVideo; liked: boolean; saved: boolean; followed: boolean;
 };
 export type FeedMode = 'following' | 'nearby';
 export const pageSize = 20;
+export const maxReelBytes = 20 * 1024 * 1024;
+export const maxReelDuration = 30_000;
 
 export function requireBackend() {
   if (!backend) throw new Error('Missing backend configuration');
@@ -36,33 +41,84 @@ export async function profilesFor(ids: string[]) {
   return new Map(rows.map((row) => [row.id, row as Profile]));
 }
 
-export async function decoratePosts(rows: PostRow[], viewer?: string): Promise<SocialPost[]> {
+const literalLike = (text: string) => `%${text.trim().replace(/[\\%_]/g, '\\$&')}%`;
+
+export async function searchProfiles(text: string, signal: AbortSignal) {
+  const result = await requireBackend().from('profiles').select('id,display_name,avatar_url')
+    .ilike('display_name', literalLike(text)).order('display_name').order('id').limit(pageSize).abortSignal(signal);
+  return values(result) ?? [];
+}
+
+function missingVideoTable(error: { code?: string } | null) {
+  return error?.code === 'PGRST205' || error?.code === '42P01';
+}
+
+export async function reelsAvailable(signal?: AbortSignal) {
+  let request = requireBackend().from('post_videos').select('post_id').limit(1);
+  if (signal) request = request.abortSignal(signal);
+  const { error } = await request;
+  if (missingVideoTable(error)) return false;
+  if (error) throw error;
+  return true;
+}
+
+export async function decoratePosts(rows: PostRow[], viewer?: string, includeVideo = true): Promise<SocialPost[]> {
   if (!rows.length) return [];
   const client = requireBackend();
   const ids = rows.map(({ id }) => id);
   const authors = rows.map(({ user_id }) => user_id);
-  const [profiles, images, likes, saves, follows] = await Promise.all([
+  const [profiles, images, likes, saves, follows, clips] = await Promise.all([
     profilesFor(authors),
     client.from('post_photos').select('id,post_id,url,thumbnail_url').in('post_id', ids).order('position'),
     viewer ? client.from('likes').select('post_id').eq('user_id', viewer).in('post_id', ids) : null,
     viewer ? client.from('saved').select('post_id').in('post_id', ids) : null,
     viewer ? client.from('follows').select('following_id').eq('follower_id', viewer).in('following_id', authors) : null,
+    includeVideo ? client.from('post_videos').select('post_id,path,duration_ms').in('post_id', ids) : null,
   ]);
   const photos = values(images) ?? [];
   const paths = Array.from(new Set(photos.flatMap(({ url, thumbnail_url }) => [url, thumbnail_url])));
-  const signed = paths.length ? values(await client.storage.from('post-photos').createSignedUrls(paths, 600)) : [];
+  const videos = clips && !missingVideoTable(clips.error) ? values(clips) ?? [] : [];
+  const [signed, signedClips] = await Promise.all([
+    paths.length ? client.storage.from('post-photos').createSignedUrls(paths, 600).then(values) : [],
+    videos.length ? client.storage.from('post-videos').createSignedUrls(videos.map((item) => item.path), 600).then(values) : [],
+  ]);
   const urls = new Map(signed?.map((item) => [item.path, item.signedUrl]));
+  const clipUrls = new Map(signedClips?.map((item) => [item.path, item.signedUrl]));
+  const reelByPost = new Map(videos.flatMap(({ post_id, path, duration_ms }) => {
+    const uri = clipUrls.get(path);
+    return uri ? [[post_id, { uri, durationMs: duration_ms }] as const] : [];
+  }));
   const liked = new Set(likes ? values(likes)?.map(({ post_id }) => post_id) : []);
   const saved = new Set(saves ? values(saves)?.map(({ post_id }) => post_id) : []);
   const followed = new Set(follows ? values(follows)?.map(({ following_id }) => following_id) : []);
   return rows.map((row) => ({
     ...row, author: profiles.get(row.user_id), liked: liked.has(row.id), saved: saved.has(row.id),
-    followed: followed.has(row.user_id),
+    followed: followed.has(row.user_id), video: reelByPost.get(row.id),
     photos: photos.filter((item) => item.post_id === row.id).flatMap((item) => {
       const uri = urls.get(item.url);
       return uri ? [{ id: item.id, uri, thumbnail: urls.get(item.thumbnail_url) ?? undefined }] : [];
     }),
   }));
+}
+
+export async function discoveryPage(text: string, mode: 'posts' | 'reels', hasReels: boolean, viewer?: string,
+  cursor?: Pick<PostRow, 'created_at' | 'id'>, signal?: AbortSignal) {
+  const columns = 'id,user_id,spot_id,trip_id,trip_preview,caption,created_at,likes_count,comments_count';
+  let request = requireBackend().from('posts').select(hasReels ? `${columns},post_videos(post_id)` : columns)
+    .eq('visibility', 'public').eq('deleted', false)
+    .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(pageSize);
+  if (viewer) request = request.neq('user_id', viewer);
+  if (hasReels) request = mode === 'reels' ? request.not('post_videos', 'is', null) : request.is('post_videos', null);
+  if (signal) request = request.abortSignal(signal);
+  const conditions: string[] = [];
+  if (text) {
+    const value = `"${literalLike(text).replace(/[\\"]/g, '\\$&')}"`;
+    conditions.push(`or(caption.ilike.${value},trip_preview->>title.ilike.${value})`);
+  }
+  if (cursor) conditions.push(`or(created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id}))`);
+  if (conditions.length) request = request.or(`and(${conditions.join(',')})`);
+  const rows = values(await request) as unknown as PostRow[] ?? [];
+  return decoratePosts(rows, viewer, mode === 'reels');
 }
 
 export async function feedPage(mode: FeedMode, cursor?: Pick<PostRow,'created_at'|'id'>, point?: Point, viewer?: string) {
@@ -121,4 +177,30 @@ export async function publishPost(input: {
     if (uploaded.length) await bucket.remove(uploaded);
     throw failure;
   }
+}
+
+export async function publishReel(input: Parameters<typeof publishPost>[0], reel: ReelAsset) {
+  const client = requireBackend();
+  const file = new File(reel.uri);
+  const durationMs = Math.round(reel.durationMs);
+  if (!file.size || file.size > maxReelBytes || !Number.isFinite(durationMs) ||
+      durationMs < 1 || durationMs > maxReelDuration) throw new Error('Invalid video');
+  const data = stripVideoMetadata(await file.arrayBuffer());
+  const path = `${input.viewer}/${randomUUID()}.${reel.extension}`;
+  const bucket = client.storage.from('post-videos');
+  const result = await bucket.upload(path, data, { contentType: reel.extension === 'mov' ? 'video/quicktime' : 'video/mp4' });
+  if (result.error) throw result.error;
+  const published = await client.rpc('publish_reel', {
+    message: input.caption, audience: input.audience, approximate: input.approximate,
+    attached_spot: input.spotId ?? null, attached_trip: input.tripId ?? null, trip_summary: input.tripPreview ?? null,
+    latitude: input.point?.latitude ?? null, longitude: input.point?.longitude ?? null, video_path: path, duration_ms: durationMs,
+  });
+  if (!published.error) return published.data as string;
+  if (published.status >= 400 && published.status < 500) await bucket.remove([path]);
+  else {
+    // A lost response may follow a successful commit. Preserve the file and check whether it was published.
+    const existing = await client.from('post_videos').select('post_id').eq('path', path).maybeSingle();
+    if (existing.data) return existing.data.post_id as string;
+  }
+  throw published.error;
 }

@@ -10,7 +10,9 @@ Deno.serve(async (request) => {
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data.user) return new Response(null, { status: 401 });
   const id = data.user.id;
-  for (const bucket of ['spot-photos', 'post-photos']) {
+  const buckets = await admin.storage.listBuckets();
+  if (buckets.error) return new Response(null, { status: 500 });
+  for (const bucket of ['spot-photos', 'post-photos', 'post-videos'].filter((id) => buckets.data.some((item) => item.id === id))) {
     const storage = admin.storage.from(bucket);
     for (;;) {
       const list = await storage.list(id, { limit: 100 });

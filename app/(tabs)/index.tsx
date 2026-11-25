@@ -58,6 +58,8 @@ export default function Feed() {
 
   return <TabContent name="index">
     <Header title={t.app}>
+      {backend && <IconButton name="search-outline" label={t.searchUsers}
+        onPress={() => router.navigate({ pathname: '/explore', params: { people: '1' } })} />}
       <View>
         <IconButton name="notifications-outline" align="end" label={t.notifications} onPress={() => router.push('/notifications')} />
         {unread && <View pointerEvents="none" style={{ position: 'absolute', right: 0, top: 9,

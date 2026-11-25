@@ -3,6 +3,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Alert, FlatList, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ReelVideo } from '../../components/ReelVideo';
 import { Button, Field, Header, Notice, side, styles, usePalette } from '../../components/ui';
 import { relativeDate, t } from '../../i18n';
 import { backend, useSession } from '../../services/backend';
@@ -103,6 +104,7 @@ export default function PostDetail() {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={<View style={styles.group}>
           {!parent && <>
+            {post.video && <ReelVideo key={post.video.uri} uri={post.video.uri} />}
             {post.photos[0] && <Image source={post.photos[0].uri} cachePolicy="memory"
               style={{ width: '100%', aspectRatio: 4 / 5, borderRadius: 14 }} />}
             {!!post.caption && <Text style={{ color: p.ink }}>{post.caption}</Text>}

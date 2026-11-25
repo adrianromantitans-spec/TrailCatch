@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { isAuthError, isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { TextInputProps } from 'react-native';
@@ -10,6 +11,19 @@ import type { IconName } from './ui';
 
 export type AuthMode = 'signIn' | 'signUp' | 'recover';
 type Action = AuthMode | 'google' | 'apple';
+
+function authMessage(error: unknown) {
+  if (error instanceof ProviderUnavailable) return t.providerUnavailable;
+  if (isAuthRetryableFetchError(error)) return t.authConnectionError;
+  if (!isAuthError(error)) return t.accountError;
+  switch (error.code) {
+    case 'invalid_credentials': return t.invalidCredentials;
+    case 'email_not_confirmed': return t.checkEmail;
+    case 'over_request_rate_limit':
+    case 'over_email_send_rate_limit': return t.authRateLimit;
+    default: return t.accountError;
+  }
+}
 
 export function AuthInput({ icon, label, password, ...props }: TextInputProps & {
   icon: IconName; label: string; password?: boolean;
@@ -94,7 +108,7 @@ export function EmailAuthForm({ mode: supplied, onModeChange }: { mode?: AuthMod
       setPassword('');
       if (action === 'signUp' && !data.session) setNotice({ text: t.checkEmail });
     } catch (error) {
-      setNotice({ text: error instanceof ProviderUnavailable ? t.providerUnavailable : t.accountError, error: true });
+      setNotice({ text: authMessage(error), error: true });
     } finally { lock.current = false; setPending(undefined); }
   }
 
@@ -106,7 +120,7 @@ export function EmailAuthForm({ mode: supplied, onModeChange }: { mode?: AuthMod
       autoCapitalize="none" autoComplete="email" editable={!pending}
       onSubmitEditing={recovery ? () => { if (!disabled) void submit('recover'); } : undefined} />
     {!recovery && <AuthInput icon="lock-closed-outline" label={t.password} value={password} onChangeText={setPassword}
-      password autoComplete={signup ? 'new-password' : 'current-password'} editable={!pending}
+      password autoCapitalize="none" autoCorrect={false} autoComplete={signup ? 'new-password' : 'current-password'} editable={!pending}
       onSubmitEditing={() => { if (!disabled) void submit(mode); }} />}
     {mode === 'signIn' && <View style={form.loginOptions}>
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: remember }} disabled={!!pending}

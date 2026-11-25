@@ -1,18 +1,23 @@
+import { File } from 'expo-file-system';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { launchImageLibraryAsync, VideoExportPreset } from 'expo-image-picker';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ReelVideo } from '../../components/ReelVideo';
 import { Button, Field, Header, Notice, side, styles, usePalette } from '../../components/ui';
 import type { Photo } from '../../db/model';
 import { useDiary } from '../../db/useDiary';
 import { t } from '../../i18n';
 import { backend, useSession } from '../../services/backend';
 import { discardPhotos, photoSource, selectPhotos } from '../../services/photos';
-import { publishPost } from '../../services/social';
+import { maxReelBytes, maxReelDuration, publishPost, publishReel, reelsAvailable } from '../../services/social';
+import type { ReelAsset } from '../../services/social';
 
 export default function CreatePost() {
   const router = useRouter();
+  const { media } = useLocalSearchParams<{ media?: string }>();
   const p = usePalette();
   const inset = useSafeAreaInsets();
   const { session } = useSession();
@@ -27,6 +32,9 @@ export default function CreatePost() {
   const [search, setSearch] = useState('');
   const [spots, setSpots] = useState<{ id: string; name: string; visibility: string }[]>([]);
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [reel, setReel] = useState<ReelAsset>();
+  const [reelMode, setReelMode] = useState(media === 'reel');
+  const [canReel, setCanReel] = useState<boolean>();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const files = useRef<Photo[]>([]);
@@ -36,6 +44,14 @@ export default function CreatePost() {
     active.current = true;
     return () => { active.current = false; discardPhotos(files.current); files.current = []; };
   }, []);
+  useEffect(() => {
+    if (!backend || !session) return;
+    const request = new AbortController();
+    void reelsAvailable(request.signal).then((available) => {
+      if (!request.signal.aborted) setCanReel(available);
+    }).catch(() => { if (!request.signal.aborted) setCanReel(false); });
+    return () => request.abort();
+  }, [session]);
   useEffect(() => {
     if (!backend || chooser !== 'spot') return;
     let alive = true;
@@ -64,17 +80,40 @@ export default function CreatePost() {
     finally { lock.current = false; if (active.current) setBusy(false); }
   }
 
+  async function pickVideo() {
+    if (lock.current || !canReel) return;
+    lock.current = true; setBusy(true); setMessage('');
+    try {
+      const result = await launchImageLibraryAsync({ mediaTypes: ['videos'], videoExportPreset: VideoExportPreset.MediumQuality });
+      if (result.canceled || !active.current) return;
+      const asset = result.assets[0];
+      const duration = asset.duration ?? 0;
+      const size = asset.fileSize ?? new File(asset.uri).size;
+      const source = `${asset.fileName ?? ''} ${asset.uri}`.toLowerCase();
+      const extension = asset.mimeType === 'video/quicktime' || /\.mov(?:\s|$|\?)/.test(source) ? 'mov' : 'mp4';
+      if (!Number.isFinite(duration) || duration <= 0 || duration > maxReelDuration || !size || size > maxReelBytes ||
+          (asset.mimeType && !['video/mp4', 'video/quicktime', 'application/octet-stream'].includes(asset.mimeType))) {
+        setMessage(t.reelLimits);
+        return;
+      }
+      setReel({ uri: asset.uri, durationMs: duration, extension });
+      setReelMode(true);
+    } catch { if (active.current) setMessage(t.reelPickError); }
+    finally { lock.current = false; if (active.current) setBusy(false); }
+  }
+
   async function save() {
-    if (lock.current || !session || (!caption.trim() && !photos.length)) return;
+    if (lock.current || !session || (reelMode ? !reel : !caption.trim() && !photos.length)) return;
     lock.current = true; setBusy(true); setMessage('');
     const owned = files.current; files.current = [];
     try {
       const tripData = items?.find((item) => item.id === trip);
-      const id = await publishPost({
+      const input: Parameters<typeof publishPost>[0] = {
         viewer: session.user.id, caption: caption.trim(), audience, approximate, spotId: spot, tripId: trip,
         point: shareLocation ? tripData?.point : undefined, photos: owned,
         tripPreview: tripData ? { title: tripData.title.slice(0, 120), type: tripData.type, distance: tripData.route?.distance } : undefined,
-      });
+      };
+      const id = reel ? await publishReel(input, reel) : await publishPost(input);
       discardPhotos(owned);
       if (active.current) router.replace({ pathname: '/post/[id]', params: { id } });
     } catch {
@@ -83,7 +122,7 @@ export default function CreatePost() {
   }
 
   return <>
-    <Header title={t.newPost} back={() => router.back()} />
+    <Header title={reelMode ? t.newReel : t.newPost} back={() => router.back()} />
     {!backend ? <Notice message={t.backendUnavailable} /> : !session ? <View style={styles.content}>
       <Notice message={t.signInRequired} /><Button label={t.signIn} onPress={() => router.push('/account')} />
     </View> : <ScrollView style={styles.screen} keyboardShouldPersistTaps="handled"
@@ -96,7 +135,17 @@ export default function CreatePost() {
           }} />
         </View>)}
       </ScrollView>
-      <Button label={t.addMorePhotos} icon="images-outline" disabled={busy || photos.length >= 10} onPress={() => void pick()} />
+      {reelMode ? <>
+        {!canReel ? <Notice message={canReel === undefined ? t.loading : t.reelsUnavailable} loading={canReel === undefined} /> : <>
+          {reel && <ReelVideo key={reel.uri} uri={reel.uri} />}
+          <Button label={t.addReelVideo} icon="videocam-outline" disabled={busy} onPress={() => void pickVideo()} />
+        </>}
+        <Button label={t.addMorePhotos} icon="images-outline" disabled={busy} onPress={() => { setReel(undefined); setReelMode(false); setMessage(''); }} />
+      </> : <View style={styles.columns}>
+        <Button label={t.addMorePhotos} icon="images-outline" stretch disabled={busy || photos.length >= 10} onPress={() => void pick()} />
+        {canReel && <Button label={t.newReel} icon="videocam-outline" stretch disabled={busy || photos.length > 0}
+          onPress={() => { setReelMode(true); void pickVideo(); }} />}
+      </View>}
       <Field label={t.caption} value={caption} onChangeText={setCaption} multiline maxLength={2200} />
       <Text style={[styles.fieldLabel, { color: p.ink }]}>{t.visibility}</Text>
       <View style={styles.columns}>
@@ -128,7 +177,8 @@ export default function CreatePost() {
         <Switch accessibilityLabel={t.approximate} disabled={busy} value={approximate} onValueChange={setApproximate} />
       </View>
       {!!message && <Text style={{ color: p.danger }}>{message}</Text>}
-      <Button label={busy ? t.loading : t.publishPost} primary disabled={busy || (!caption.trim() && !photos.length)} onPress={() => void save()} />
+      <Button label={busy ? t.loading : t.publishPost} primary disabled={busy || (reelMode ? !reel : !caption.trim() && !photos.length)}
+        onPress={() => void save()} />
     </ScrollView>}
   </>;
 }

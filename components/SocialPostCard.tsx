@@ -46,6 +46,9 @@ export function SocialPostCard({ post, viewer, onLike, onSave, onFollow }: {
       </Pressable>
       {viewer !== post.user_id && <Button label={post.followed ? t.unfollow : t.follow} onPress={onFollow} />}
     </View>
+    {post.video && <View style={{ paddingHorizontal: side }}>
+      <Button label={t.playReel} icon="play-outline" onPress={open} />
+    </View>}
     {post.photos.length > 0 && <View>
       <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={({ nativeEvent }) => setSlide(Math.round(nativeEvent.contentOffset.x / width))}>
