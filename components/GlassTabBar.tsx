@@ -5,8 +5,10 @@ import * as Haptics from 'expo-haptics';
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { ComponentRef, createContext, createRef, PropsWithChildren, useContext, useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated, { Easing, ReduceMotion, useAnimatedScrollHandler, useAnimatedStyle, useDerivedValue, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
-import type { SharedValue } from 'react-native-reanimated';
+import type { ViewStyle } from 'react-native';
+import Animated, { Easing, interpolateColor, ReduceMotion, useAnimatedScrollHandler, useAnimatedStyle, useDerivedValue,
+  useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import type { AnimatedStyle, SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../i18n';
 import { brandGreen, IconName, onBrand, side, usePalette } from './ui';
@@ -16,6 +18,18 @@ const compactBarHeight = 54;
 const compactSideInset = 12;
 const tabCount = 5;
 const pillInset = 6;
+const tabMotion = {
+  // Reanimated uses a perceptual duration. The spring settles in about 410 ms.
+  slideDuration: 275,
+  dampingRatio: 0.78,
+  edgeOverrun: 3,
+  tintDuration: 190,
+  popScale: 1.15,
+  popUp: 85,
+  popDown: 170,
+  pressScale: 0.98,
+  pressDuration: 110,
+};
 const barBottom = (inset: number) => Math.max(inset, 8) + 8;
 
 export function useTabClearance() {
@@ -77,6 +91,42 @@ export function useHomeTabScroll() {
 
 type Props = BottomTabBarProps & { onCreate: () => void };
 
+function GlassTabItem({ name, label, selected, accent, muted, captionLayout, onPressIn, onPressOut, onLongPress, onSelect }: {
+  name: TabName; label: string; selected: boolean; accent: string; muted: string; captionLayout: AnimatedStyle<ViewStyle>;
+  onPressIn: () => void; onPressOut: () => void; onLongPress: () => void; onSelect: () => boolean;
+}) {
+  const pop = useSharedValue(1);
+  const tint = useDerivedValue(() => withTiming(selected ? 1 : 0, {
+    duration: tabMotion.tintDuration, easing: Easing.inOut(Easing.cubic), reduceMotion: ReduceMotion.System,
+  }));
+  const iconMotion = useAnimatedStyle(() => ({ transform: [{ scale: pop.get() }] }));
+  const iconTint = useAnimatedStyle(() => ({ opacity: tint.get() }));
+  const labelMotion = useAnimatedStyle(() => {
+    const progress = tint.get();
+    return { color: interpolateColor(progress, [0, 1], [muted, accent]), opacity: 1 - 1.6 * progress * (1 - progress) };
+  });
+
+  return <Pressable accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected }}
+    style={styles.slot} onPressIn={onPressIn} onPressOut={onPressOut} onLongPress={onLongPress} onPress={() => {
+      if (!onSelect()) return;
+      pop.set(withSequence(ReduceMotion.System,
+        withTiming(tabMotion.popScale, { duration: tabMotion.popUp, easing: Easing.out(Easing.cubic) }),
+        withTiming(1, { duration: tabMotion.popDown, easing: Easing.inOut(Easing.cubic) }),
+      ));
+    }}>
+    <Animated.View style={[styles.tabIcon, iconMotion]}>
+      <Ionicons name={icons[name]} size={23} color={muted} />
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.tabIcon, iconTint]}>
+        <Ionicons name={icons[name]} size={23} color={accent} />
+      </Animated.View>
+    </Animated.View>
+    <Animated.View style={[styles.caption, captionLayout]}>
+      <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.2}
+        style={[styles.label, labelMotion]}>{label}</Animated.Text>
+    </Animated.View>
+  </Pressable>;
+}
+
 export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCreate }: Props) {
   const p = usePalette();
   const inset = useSafeAreaInsets();
@@ -88,9 +138,12 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
   const slotIndex = Math.max(0, position < 2 ? position : position + 1);
   const selectedSlot = useSharedValue(slotIndex);
   const scale = useSharedValue(1);
+  const barScale = useSharedValue(1);
 
   useEffect(() => {
-    selectedSlot.set(withSpring(slotIndex, { overshootClamping: true, reduceMotion: ReduceMotion.System }));
+    selectedSlot.set(withSpring(slotIndex, {
+      duration: tabMotion.slideDuration, dampingRatio: tabMotion.dampingRatio, reduceMotion: ReduceMotion.System,
+    }));
   }, [selectedSlot, slotIndex]);
 
   const compact = useDerivedValue(() => withTiming(active === 'index' && homeCompact?.get() ? 1 : 0, {
@@ -100,27 +153,28 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
   const maxInset = Math.max(0, Math.min(compactSideInset, (width - tabCount * 44 - 2) / 2));
   const frame = useAnimatedStyle(() => {
     const height = barHeight - (barHeight - compactBarHeight) * compact.get();
-    return { height, borderRadius: height / 2, marginHorizontal: maxInset * compact.get() };
+    return { height, borderRadius: height / 2, marginHorizontal: maxInset * compact.get(), transform: [{ scale: barScale.get() }] };
   });
   const corners = useAnimatedStyle(() => ({ borderRadius: (barHeight - (barHeight - compactBarHeight) * compact.get()) / 2 }));
   const indicator = useAnimatedStyle(() => {
     const slot = Math.max(0, width - 2 - 2 * maxInset * compact.get()) / tabCount;
-    return { width: Math.max(0, slot - 2 * pillInset), transform: [{ translateX: selectedSlot.get() * slot }] };
+    const translateX = Math.max(-tabMotion.edgeOverrun,
+      Math.min((tabCount - 1) * slot + tabMotion.edgeOverrun, selectedSlot.get() * slot));
+    return { width: Math.max(0, slot - 2 * pillInset), transform: [{ translateX }] };
   });
-  const labelMotion = useAnimatedStyle(() => {
+  const labelMotion = useAnimatedStyle<ViewStyle>(() => {
     const visible = 1 - compact.get();
     return { opacity: visible, height: 16 * visible, marginTop: 2 * visible };
   });
-  const plus = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() * (1 - compact.get() * 0.09) }] }));
+  const plus = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() * (1 - compact.get() * 0.09) / barScale.get() }] }));
   const nativeGlass = Platform.OS === 'ios' && isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
   const blur = Platform.OS === 'ios' || (Platform.OS === 'android' && Number(Platform.Version) >= 31);
   const target = context?.targets[active];
 
-  function caption(label: string, color: string) {
-    return <Animated.View style={[styles.caption, labelMotion]}>
-      <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.2}
-        style={[styles.label, { color }]}>{label}</Animated.Text>
-    </Animated.View>;
+  function pressBar(pressed: boolean) {
+    barScale.set(withTiming(pressed ? tabMotion.pressScale : 1, {
+      duration: tabMotion.pressDuration, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System,
+    }));
   }
 
   function tab(name: TabName) {
@@ -129,16 +183,18 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
     const selected = name === active;
     const label = descriptors[route.key].options.title ?? t.home;
     return (
-      <Pressable key={name} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected }}
-        style={styles.slot}
+      <GlassTabItem key={name} name={name} selected={selected} label={label} accent={p.accent} muted={p.muted}
+        captionLayout={labelMotion} onPressIn={() => pressBar(true)} onPressOut={() => pressBar(false)}
         onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}
-        onPress={() => {
+        onSelect={() => {
           const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-          if (!selected && !event.defaultPrevented) navigateToTab(route.key);
-        }}>
-        <View style={styles.tabIcon}><Ionicons name={icons[name]} size={23} color={selected ? p.accent : p.muted} /></View>
-        {caption(label, selected ? p.accent : p.muted)}
-      </Pressable>
+          if (event.defaultPrevented) return false;
+          if (!selected) {
+            navigateToTab(route.key);
+            if (Platform.OS === 'ios' || Platform.OS === 'android') void Haptics.selectionAsync().catch(() => {});
+          }
+          return true;
+        }} />
     );
   }
 
@@ -172,7 +228,10 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
               <Animated.View style={[styles.plus, { backgroundColor: brandGreen }, plus]}>
                 <Ionicons name="add" size={24} color={onBrand} />
               </Animated.View>
-              {caption(t.createMenu, p.accent)}
+              <Animated.View style={[styles.caption, labelMotion]}>
+                <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.2}
+                  style={[styles.label, { color: p.accent }]}>{t.createMenu}</Animated.Text>
+              </Animated.View>
             </Pressable>
             {tab('explore')}
             {tab('profile')}
