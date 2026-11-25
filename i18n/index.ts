@@ -23,6 +23,10 @@ const es = {
   retry: 'Reintentar', empty: 'Aún no hay salidas', noResults: 'No hay resultados', noCategoryResults: 'No hay salidas en esta categoría', loading: 'Cargando…',
   like: 'Me gusta', unlike: 'Quitar Me gusta', comment: 'Comentar', comments: 'Comentarios',
   commentPlaceholder: 'Añade un comentario', send: 'Enviar', noComments: 'Aún no hay comentarios',
+  openCommentCount: (count: number) => count === 1 ? 'Ver el comentario' : `Ver los ${count} comentarios`,
+  closeComments: 'Cerrar comentarios', commentOptions: 'Opciones del comentario', hideReplies: 'Ocultar respuestas',
+  noReplies: 'Aún no hay respuestas.', moreReplies: 'Ver más respuestas', cancelReply: 'Cancelar respuesta',
+  replyingTo: (name: string) => `Respondiendo a ${name}`,
   shareCatch: 'Compartir captura', shareRoute: 'Compartir ruta', shareImage: 'Compartir imagen',
   shareImageError: 'No se pudo compartir la imagen.',
   bookmark: 'Guardar publicación', unbookmark: 'Quitar de guardados', share: 'Compartir',
@@ -135,6 +139,10 @@ const es = {
 const translations: Record<Locale, Partial<typeof es>> = {
   es,
   en: {
+    openCommentCount: (count: number) => count === 1 ? 'View comment' : `View all ${count} comments`,
+    closeComments: 'Close comments', commentOptions: 'Comment options', hideReplies: 'Hide replies',
+    noReplies: 'No replies yet.', moreReplies: 'View more replies', cancelReply: 'Cancel reply',
+    replyingTo: (name: string) => `Replying to ${name}`,
     profileCreateTitle: 'Create your profile', profileSkip: 'Skip for now', profileChangePhoto: 'Change profile photo',
     profileChooseGallery: 'Choose from gallery', profileRemovePhoto: 'Remove photo',
     profileCameraDenied: 'Allow camera access to take your profile photo.', profileGalleryDenied: 'Allow photo access to choose a profile photo.',
@@ -171,6 +179,10 @@ const translations: Record<Locale, Partial<typeof es>> = {
     mapLocationDenied: 'Allow location access to centre the map near you.',
   },
   ro: {
+    openCommentCount: (count: number) => count === 1 ? 'Vezi comentariul' : `Vezi comentariile (${count})`,
+    closeComments: 'Închide comentariile', commentOptions: 'Opțiuni pentru comentariu', hideReplies: 'Ascunde răspunsurile',
+    noReplies: 'Încă nu există răspunsuri.', moreReplies: 'Vezi mai multe răspunsuri', cancelReply: 'Anulează răspunsul',
+    replyingTo: (name: string) => `Îi răspunzi lui ${name}`,
     profileCreateTitle: 'Creează-ți profilul', profileSkip: 'Omite deocamdată', profileChangePhoto: 'Schimbă fotografia de profil',
     profileChooseGallery: 'Alege din galerie', profileRemovePhoto: 'Elimină fotografia',
     profileCameraDenied: 'Permite accesul la cameră pentru a face fotografia de profil.',

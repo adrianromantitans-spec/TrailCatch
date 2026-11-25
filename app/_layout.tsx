@@ -35,6 +35,8 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
               <Stack.Screen name="welcome" options={{ animation: 'fade', gestureEnabled: false }} />
               <Stack.Screen name="create" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
+              <Stack.Screen name="post/comments" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.56, 1],
+                sheetCornerRadius: 28, sheetGrabberVisible: true, sheetExpandsWhenScrolledToEdge: true }} />
             </Stack>
           </DatabaseBoundary>
         </AuthProvider>

@@ -21,6 +21,7 @@ export function SocialPostCard({ post, viewer, onLike, onSave, onFollow }: {
   const heart = useSharedValue(0);
   const animation = useAnimatedStyle(() => ({ opacity: Math.min(1, heart.value), transform: [{ scale: heart.value }] }));
   const open = () => router.push({ pathname: '/post/[id]', params: { id: post.id } });
+  const openComments = () => router.push({ pathname: '/post/comments', params: { id: post.id } });
 
   function likePhoto() {
     const now = Date.now();
@@ -67,7 +68,7 @@ export function SocialPostCard({ post, viewer, onLike, onSave, onFollow }: {
     <View style={cardStyles.actions}>
       <IconButton name={post.liked ? 'heart' : 'heart-outline'} label={post.liked ? t.unlike : t.like}
         color={post.liked ? p.danger : undefined} onPress={() => onLike(!post.liked)} />
-      <IconButton name="chatbubble-outline" label={t.comment} onPress={open} />
+      <IconButton name="chatbubble-outline" label={t.comment} onPress={openComments} />
       <View style={styles.screen} />
       <IconButton name={post.saved ? 'bookmark' : 'bookmark-outline'} label={post.saved ? t.unbookmark : t.bookmark} onPress={onSave} />
       <IconButton name="share-outline" label={t.share} onPress={() => {
@@ -78,6 +79,12 @@ export function SocialPostCard({ post, viewer, onLike, onSave, onFollow }: {
       <Text style={[cardStyles.name, { color: p.ink }]}>{t.likes(post.likes_count)}</Text>
       {!!post.caption && <Text numberOfLines={expanded ? undefined : 3} style={{ color: p.ink }}>{post.caption}</Text>}
       {post.caption.length > 100 && <Text style={{ color: p.accent }} onPress={() => setExpanded(!expanded)}>{expanded ? t.less : t.more}</Text>}
+      {!!post.latestComment && <Text numberOfLines={1} style={{ color: p.ink }}>
+        <Text style={cardStyles.name}>{post.latestComment.author?.display_name ?? t.unavailable}</Text> {post.latestComment.body}
+      </Text>}
+      <Pressable accessibilityRole="button" onPress={openComments} style={cardStyles.commentLink}>
+        <Text style={{ color: p.accent }}>{post.comments_count ? t.openCommentCount(post.comments_count) : t.commentPlaceholder}</Text>
+      </Pressable>
       <Text style={{ color: p.muted }}>{relativeDate(post.created_at.slice(0, 10))}</Text>
       <View style={styles.row}>
         {post.spot_id && <Button label={t.openSpot} onPress={() => router.push({ pathname: '/spot/[id]', params: { id: post.spot_id! } })} />}
@@ -85,7 +92,6 @@ export function SocialPostCard({ post, viewer, onLike, onSave, onFollow }: {
           onPress={viewer === post.user_id
             ? () => router.push({ pathname: '/outing/[id]', params: { id: post.trip_id! } })
             : open} />}
-        <Button label={t.comments} onPress={open} />
       </View>
     </View>
   </View>;
@@ -101,5 +107,6 @@ const cardStyles = StyleSheet.create({
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 7 },
   dot: { width: 6, height: 6, borderRadius: 3 },
   actions: { flexDirection: 'row', paddingHorizontal: 8, gap: 12 },
+  commentLink: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' },
   text: { paddingHorizontal: side, paddingBottom: 16, gap: 6 },
 });

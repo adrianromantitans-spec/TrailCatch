@@ -92,7 +92,7 @@ function CommunityPosts({ mode, query, viewer, hasReels, bottom }: {
         router.push({ pathname: '/user/[id]', params: { id: item.user_id } })}>{item.author.display_name}</Text>}
       {!!item.caption && <Text numberOfLines={3} style={{ color: p.ink }}>{item.caption}</Text>}
       <Button label={t.comments} icon="chatbubble-outline" onPress={() =>
-        router.push({ pathname: '/post/[id]', params: { id: item.id } })} />
+        router.push({ pathname: '/post/comments', params: { id: item.id } })} />
     </View>} />;
 }
 

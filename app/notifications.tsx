@@ -91,9 +91,9 @@ export default function Notifications() {
         <Text style={{ color: p.ink }}>{labels[item.type]}</Text>
         <Text style={{ color: p.muted }}>{relativeDate(item.created_at.slice(0, 10))}</Text>
         <View style={styles.row}>
-          <Button label={item.post_id ? t.post : t.openProfile} onPress={() => {
+          <Button label={item.post_id ? item.type === 'comment' ? t.comments : t.post : t.openProfile} onPress={() => {
             if (!item.read) void mark(item.id);
-            if (item.post_id) router.push({ pathname: '/post/[id]', params: { id: item.post_id } });
+            if (item.post_id) router.push({ pathname: item.type === 'comment' ? '/post/comments' : '/post/[id]', params: { id: item.post_id } });
             else router.push({ pathname: '/user/[id]', params: { id: item.actor_id } });
           }} />
           {!item.read && <Button label={t.markRead} onPress={() => void mark(item.id)} />}

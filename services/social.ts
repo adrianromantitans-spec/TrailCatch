@@ -16,8 +16,11 @@ export type PostRow = {
 export type PostPhoto = { id: string; uri: string; thumbnail?: string };
 export type PostVideo = { uri: string; durationMs: number };
 export type ReelAsset = PostVideo & { extension: 'mp4' | 'mov' };
+export type PostComment = { id: string; user_id: string; body: string; created_at: string; author?: Profile };
+type CommentPreview = Pick<PostComment, 'id' | 'user_id' | 'body' | 'author'>;
 export type SocialPost = PostRow & {
-  author?: Profile; photos: PostPhoto[]; video?: PostVideo; liked: boolean; saved: boolean; followed: boolean;
+  author?: Profile; photos: PostPhoto[]; video?: PostVideo; latestComment?: CommentPreview;
+  liked: boolean; saved: boolean; followed: boolean;
 };
 export type FeedMode = 'following' | 'nearby';
 export const pageSize = 20;
@@ -126,7 +129,32 @@ export async function feedPage(mode: FeedMode, cursor?: Pick<PostRow,'created_at
     feed: mode, cursor_at: cursor?.created_at, cursor_id: cursor?.id,
     latitude: point?.latitude, longitude: point?.longitude,
   })) as PostRow[];
-  return decoratePosts(rows ?? [], viewer);
+  const [posts, previews] = await Promise.all([
+    decoratePosts(rows ?? [], viewer),
+    commentPreviews((rows ?? []).filter((post) => post.comments_count > 0).map(({ id }) => id)).catch(() => new Map<string, CommentPreview>()),
+  ]);
+  return posts.map((post) => ({ ...post, latestComment: previews.get(post.id) }));
+}
+
+async function commentPreviews(ids: string[]) {
+  if (!ids.length) return new Map<string, CommentPreview>();
+  const result = await requireBackend().from('posts').select('id,comments(id,user_id,body)').in('id', ids)
+    .is('comments.parent_id', null).order('created_at', { referencedTable: 'comments', ascending: false })
+    .order('id', { referencedTable: 'comments', ascending: false }).limit(1, { referencedTable: 'comments' });
+  const comments = (values(result) ?? []).flatMap(({ id, comments }) => comments[0] ? [[id, comments[0]] as const] : []);
+  const authors = await profilesFor(comments.map(([, comment]) => comment.user_id));
+  return new Map(comments.map(([id, comment]) => [id, { ...comment, author: authors.get(comment.user_id) }]));
+}
+
+export async function commentsPage(postId: string, parent: string | null, cursor?: PostComment, signal?: AbortSignal) {
+  let query = requireBackend().from('comments').select('id,user_id,body,created_at').eq('post_id', postId)
+    .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(pageSize);
+  query = parent ? query.eq('parent_id', parent) : query.is('parent_id', null);
+  if (cursor) query = query.or(`created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`);
+  if (signal) query = query.abortSignal(signal);
+  const posts = values(await query) ?? [];
+  const authors = await profilesFor(posts.map(({ user_id }) => user_id));
+  return posts.map((post) => ({ ...post, author: authors.get(post.user_id) }));
 }
 
 export async function changeRelation(kind: 'likes' | 'saved' | 'follows', viewer: string, target: string, active: boolean) {
