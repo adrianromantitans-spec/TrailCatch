@@ -32,7 +32,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "TrailCatch permite elegir fotos para tu diario.",
+          "photosPermission": "TrailCatch usa las fotos que eliges para tu perfil y tu diario.",
           "cameraPermission": false,
           "microphonePermission": false
         }
@@ -43,7 +43,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "TrailCatch usa la cámara para añadir fotos a tus salidas y capturas.",
+          "cameraPermission": "TrailCatch usa la cámara para tu foto de perfil y para añadir fotos a tus salidas y capturas.",
           "microphonePermission": false,
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": false

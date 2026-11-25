@@ -10,11 +10,12 @@ import { backend, useSession } from '../../services/backend';
 export default function TabsLayout() {
   const router = useRouter();
   const p = usePalette();
-  const { session, guest, loading } = useSession();
-  if (loading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: p.bg }}>
+  const { session, guest, loading, profileSetup } = useSession();
+  if (loading || profileSetup === 'checking') return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: p.bg }}>
     <ActivityIndicator accessibilityLabel={t.loading} color={p.accent} />
   </View>;
   if (backend && !session && !guest) return <Redirect href="/welcome" />;
+  if (profileSetup === 'required') return <Redirect href="/account" />;
   const openCreate = () => {
     if (!backend) { router.push('/create'); return; }
     Alert.alert(t.createMenu, undefined, [

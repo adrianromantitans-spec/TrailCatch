@@ -40,13 +40,17 @@ export const backend = url && key ? createClient(url, key, {
 
 const AuthContext = createContext<{
   session: Session | null; loading: boolean; guest: boolean; continueAsGuest: () => void; resetGuest: () => void;
-}>({ session: null, loading: false, guest: false, continueAsGuest: () => {}, resetGuest: () => {} });
+  profileSetup: 'checking' | 'required' | 'complete'; finishProfileSetup: (userId: string) => void;
+}>({ session: null, loading: false, guest: false, continueAsGuest: () => {}, resetGuest: () => {},
+  profileSetup: 'complete', finishProfileSetup: () => {} });
 export const useSession = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(!!backend);
   const [guest, setGuest] = useState(false);
+  const [profile, setProfile] = useState<{ userId: string; complete: boolean }>();
+  const userId = session?.user.id;
   useEffect(() => {
     if (!backend) return;
     const client = backend;
@@ -66,7 +70,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
       client.auth.stopAutoRefresh();
     };
   }, []);
-  return <AuthContext.Provider value={{ session, loading, guest, continueAsGuest: () => setGuest(true), resetGuest: () => setGuest(false) }}>{children}</AuthContext.Provider>;
+  useEffect(() => {
+    if (!backend || !userId) return;
+    const request = new AbortController();
+    const update = (complete: boolean) => {
+      if (!request.signal.aborted) setProfile((value) => value?.userId === userId && value.complete ? value : { userId, complete });
+    };
+    void backend.from('profiles').select('onboarding_complete').eq('id', userId).abortSignal(request.signal).maybeSingle()
+      .then(({ data, error }) => update(error ? true : data?.onboarding_complete !== false), () => update(true));
+    return () => request.abort();
+  }, [userId]);
+  const profileSetup = !userId ? 'complete' : profile?.userId !== userId ? 'checking' : profile.complete ? 'complete' : 'required';
+  return <AuthContext.Provider value={{ session, loading, guest, profileSetup,
+    finishProfileSetup: (id) => setProfile({ userId: id, complete: true }),
+    continueAsGuest: () => setGuest(true), resetGuest: () => setGuest(false) }}>{children}</AuthContext.Provider>;
 }
 
 export class ProviderUnavailable extends Error {}
