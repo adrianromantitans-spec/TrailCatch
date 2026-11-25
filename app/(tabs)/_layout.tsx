@@ -1,5 +1,7 @@
+import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Redirect, Tabs, useRouter } from 'expo-router';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { ActivityIndicator, Alert, Platform, View } from 'react-native';
 import { GlassTabBar, GlassTargets } from '../../components/GlassTabBar';
 import { usePalette } from '../../components/ui';
 import { t } from '../../i18n';
@@ -21,12 +23,44 @@ export default function TabsLayout() {
       { text: t.newPost, onPress: () => router.push('/post/create') },
     ]);
   };
+  const useNativeBar = Platform.OS === 'ios' && isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
+
+  if (useNativeBar) return (
+    <GlassTargets nativeBar>
+      <NativeTabs tintColor={p.accent} iconColor={{ default: p.muted, selected: p.accent }} minimizeBehavior="onScrollDown">
+        <NativeTabs.Trigger name="index" disableAutomaticContentInsets>
+          <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} />
+          <NativeTabs.Trigger.Label>{t.home}</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="map" disableAutomaticContentInsets>
+          <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} />
+          <NativeTabs.Trigger.Label>{t.map}</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="create-action" disabled disableAutomaticContentInsets listeners={{
+          tabPress: ({ data }) => { if (data.isPrevented) openCreate(); },
+        }}>
+          <NativeTabs.Trigger.Icon sf="plus.circle.fill" />
+          <NativeTabs.Trigger.Label>{t.createMenu}</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="explore" disableAutomaticContentInsets>
+          <NativeTabs.Trigger.Icon sf="magnifyingglass" />
+          <NativeTabs.Trigger.Label>{t.search}</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="profile" disableAutomaticContentInsets>
+          <NativeTabs.Trigger.Icon sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }} />
+          <NativeTabs.Trigger.Label>{t.profile}</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    </GlassTargets>
+  );
+
   return (
     <GlassTargets>
       <Tabs screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: p.bg } }}
         tabBar={(props) => <GlassTabBar {...props} onCreate={openCreate} />}>
         <Tabs.Screen name="index" options={{ title: t.home }} />
         <Tabs.Screen name="map" options={{ title: t.map }} />
+        <Tabs.Screen name="create-action" options={{ href: null }} />
         <Tabs.Screen name="explore" options={{ title: t.search }} />
         <Tabs.Screen name="profile" options={{ title: t.profile }} />
       </Tabs>

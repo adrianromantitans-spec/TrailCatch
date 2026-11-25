@@ -33,7 +33,9 @@ const tabMotion = {
 const barBottom = (inset: number) => Math.max(inset, 8) + 8;
 
 export function useTabClearance() {
-  return barHeight + barBottom(useSafeAreaInsets().bottom) + 16;
+  const { bottom } = useSafeAreaInsets();
+  const nativeBar = useContext(TargetContext)?.nativeBar;
+  return nativeBar ? bottom + 16 : barHeight + barBottom(bottom) + 16;
 }
 
 export const tabNames = ['index', 'map', 'explore', 'profile'] as const;
@@ -42,14 +44,14 @@ const icons: Record<TabName, IconName> = {
   index: 'home-outline', map: 'map-outline', explore: 'search-outline', profile: 'person-outline',
 };
 type Targets = Record<TabName, ReturnType<typeof createRef<ComponentRef<typeof View>>>>;
-const TargetContext = createContext<{ targets: Targets; homeCompact: SharedValue<boolean> } | null>(null);
+const TargetContext = createContext<{ targets: Targets; homeCompact?: SharedValue<boolean>; nativeBar: boolean } | null>(null);
 
-export function GlassTargets({ children }: PropsWithChildren) {
+export function GlassTargets({ children, nativeBar = false }: PropsWithChildren<{ nativeBar?: boolean }>) {
   const [targets] = useState<Targets>(() => ({
     index: createRef<ComponentRef<typeof View>>(), map: createRef<ComponentRef<typeof View>>(), explore: createRef<ComponentRef<typeof View>>(), profile: createRef<ComponentRef<typeof View>>(),
   }));
   const homeCompact = useSharedValue(false);
-  return <TargetContext.Provider value={{ targets, homeCompact }}>{children}</TargetContext.Provider>;
+  return <TargetContext.Provider value={{ targets, homeCompact: nativeBar ? undefined : homeCompact, nativeBar }}>{children}</TargetContext.Provider>;
 }
 
 export function TabContent({ name, children }: PropsWithChildren<{ name: TabName }>) {
