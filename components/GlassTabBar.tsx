@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurTargetView, BlurView } from 'expo-blur';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { ComponentRef, createContext, createRef, PropsWithChildren, useContext, useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -38,20 +39,29 @@ export function useTabClearance() {
   return nativeBar ? bottom + 16 : barHeight + barBottom(bottom) + 16;
 }
 
+export function useHomeTabClearance() {
+  const { bottom } = useSafeAreaInsets();
+  const inset = useContext(TargetContext)?.bottomInset ?? bottom;
+  return barHeight + barBottom(inset) + 16;
+}
+
 export const tabNames = ['index', 'map', 'explore', 'profile'] as const;
 type TabName = typeof tabNames[number];
 const icons: Record<TabName, IconName> = {
   index: 'home-outline', map: 'map-outline', explore: 'search-outline', profile: 'person-outline',
 };
 type Targets = Record<TabName, ReturnType<typeof createRef<ComponentRef<typeof View>>>>;
-const TargetContext = createContext<{ targets: Targets; homeCompact?: SharedValue<boolean>; nativeBar: boolean } | null>(null);
+const TargetContext = createContext<{
+  targets: Targets; homeCompact: SharedValue<boolean>; nativeBar: boolean; bottomInset: number; onCreate?: () => void;
+} | null>(null);
 
-export function GlassTargets({ children, nativeBar = false }: PropsWithChildren<{ nativeBar?: boolean }>) {
+export function GlassTargets({ children, nativeBar = false, onCreate }: PropsWithChildren<{ nativeBar?: boolean; onCreate?: () => void }>) {
   const [targets] = useState<Targets>(() => ({
     index: createRef<ComponentRef<typeof View>>(), map: createRef<ComponentRef<typeof View>>(), explore: createRef<ComponentRef<typeof View>>(), profile: createRef<ComponentRef<typeof View>>(),
   }));
   const homeCompact = useSharedValue(false);
-  return <TargetContext.Provider value={{ targets, homeCompact: nativeBar ? undefined : homeCompact, nativeBar }}>{children}</TargetContext.Provider>;
+  const { bottom: bottomInset } = useSafeAreaInsets();
+  return <TargetContext.Provider value={{ targets, homeCompact, nativeBar, bottomInset, onCreate }}>{children}</TargetContext.Provider>;
 }
 
 export function TabContent({ name, children }: PropsWithChildren<{ name: TabName }>) {
@@ -66,7 +76,6 @@ type ScrollContext = { y?: number; travel?: number };
 export function useHomeTabScroll(headerHeight = 0) {
   const context = useContext(TargetContext);
   const compact = context?.homeCompact;
-  const nativeBar = context?.nativeBar ?? false;
   const headerOffset = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler<ScrollContext>({
     onBeginDrag(event, context) {
@@ -94,14 +103,14 @@ export function useHomeTabScroll(headerHeight = 0) {
       else if (compact.get() && context.travel <= -10) compact.set(false);
     },
   });
-  return { onScroll, compact, headerOffset, nativeBar };
+  return { onScroll, compact, headerOffset };
 }
 
 type Props = BottomTabBarProps & { onCreate: () => void };
 
 function GlassTabItem({ name, label, selected, accent, muted, captionLayout, onPressIn, onPressOut, onLongPress, onSelect }: {
   name: TabName; label: string; selected: boolean; accent: string; muted: string; captionLayout: AnimatedStyle<ViewStyle>;
-  onPressIn: () => void; onPressOut: () => void; onLongPress: () => void; onSelect: () => boolean;
+  onPressIn: () => void; onPressOut: () => void; onLongPress?: () => void; onSelect: () => boolean;
 }) {
   const pop = useSharedValue(1);
   const tint = useDerivedValue(() => withTiming(selected ? 1 : 0, {
@@ -136,12 +145,50 @@ function GlassTabItem({ name, label, selected, accent, muted, captionLayout, onP
 }
 
 export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCreate }: Props) {
+  const active = state.routes[state.index]?.name as TabName;
+  return <GlassTabBarView active={active} onCreate={onCreate} getTab={(name) => {
+    const route = state.routes.find((item) => item.name === name);
+    if (!route) return undefined;
+    return {
+      label: descriptors[route.key].options.title ?? t.home,
+      onLongPress: () => emitter.emit({ type: 'tabLongPress', target: route.key }),
+      onSelect: () => {
+        const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+        if (event.defaultPrevented) return false;
+        if (name !== active) navigateToTab(route.key);
+        return true;
+      },
+    };
+  }} />;
+}
+
+const homeTabLabels = { index: t.home, map: t.map, explore: t.search, profile: t.profile };
+const homeTabPaths = { map: '/map', explore: '/explore', profile: '/profile' } as const;
+
+export function HomeGlassTabBar({ onHomePress }: { onHomePress: () => void }) {
+  const router = useRouter();
+  const context = useContext(TargetContext);
+  if (!context?.nativeBar || !context.onCreate) return null;
+  const { onCreate } = context;
+  return <GlassTabBarView active="index" onCreate={onCreate} getTab={(name) => ({
+    label: homeTabLabels[name],
+    onSelect: () => {
+      if (name === 'index') onHomePress();
+      else router.navigate(homeTabPaths[name]);
+      return true;
+    },
+  })} />;
+}
+
+function GlassTabBarView({ active, getTab, onCreate }: {
+  active: TabName; onCreate: () => void;
+  getTab: (name: TabName) => { label: string; onSelect: () => boolean; onLongPress?: () => void } | undefined;
+}) {
   const p = usePalette();
   const inset = useSafeAreaInsets();
   const context = useContext(TargetContext);
   const homeCompact = context?.homeCompact;
   const width = Math.max(0, useWindowDimensions().width - inset.left - inset.right - side * 2);
-  const active = state.routes[state.index]?.name as TabName;
   const position = tabNames.indexOf(active);
   const slotIndex = Math.max(0, position < 2 ? position : position + 1);
   const selectedSlot = useSharedValue(slotIndex);
@@ -186,21 +233,16 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
   }
 
   function tab(name: TabName) {
-    const route = state.routes.find((item) => item.name === name);
-    if (!route) return null;
+    const item = getTab(name);
+    if (!item) return null;
     const selected = name === active;
-    const label = descriptors[route.key].options.title ?? t.home;
     return (
-      <GlassTabItem key={name} name={name} selected={selected} label={label} accent={p.accent} muted={p.muted}
+      <GlassTabItem key={name} name={name} selected={selected} label={item.label} accent={p.accent} muted={p.muted}
         captionLayout={labelMotion} onPressIn={() => pressBar(true)} onPressOut={() => pressBar(false)}
-        onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}
+        onLongPress={item.onLongPress}
         onSelect={() => {
-          const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-          if (event.defaultPrevented) return false;
-          if (!selected) {
-            navigateToTab(route.key);
-            if (Platform.OS === 'ios' || Platform.OS === 'android') void Haptics.selectionAsync().catch(() => {});
-          }
+          if (!item.onSelect()) return false;
+          if (!selected && (Platform.OS === 'ios' || Platform.OS === 'android')) void Haptics.selectionAsync().catch(() => {});
           return true;
         }} />
     );
@@ -208,7 +250,7 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
 
   return (
     <View pointerEvents="box-none"
-      style={[styles.outer, { bottom: barBottom(inset.bottom), left: inset.left + side, right: inset.right + side }]}>
+      style={[styles.outer, { bottom: barBottom(context?.bottomInset ?? inset.bottom), left: inset.left + side, right: inset.right + side }]}>
       <Animated.View style={[styles.shadow, frame]}>
         <Animated.View style={[styles.pill, corners, {
           backgroundColor: nativeGlass ? 'transparent' : blur ? p.glass : p.glassSolid,

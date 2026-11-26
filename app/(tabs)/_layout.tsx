@@ -1,5 +1,5 @@
 import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { Redirect, Tabs, useRouter } from 'expo-router';
+import { Redirect, Tabs, usePathname, useRouter } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { ActivityIndicator, Alert, Platform, View } from 'react-native';
 import { GlassTabBar, GlassTargets } from '../../components/GlassTabBar';
@@ -9,6 +9,7 @@ import { backend, useSession } from '../../services/backend';
 
 export default function TabsLayout() {
   const router = useRouter();
+  const isHome = usePathname() === '/';
   const p = usePalette();
   const { session, guest, loading, profileSetup } = useSession();
   if (loading || profileSetup === 'checking') return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: p.bg }}>
@@ -27,9 +28,11 @@ export default function TabsLayout() {
   const useNativeBar = Platform.OS === 'ios' && isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
 
   if (useNativeBar) return (
-    <GlassTargets nativeBar>
-      <NativeTabs tintColor={p.accent} iconColor={{ default: p.muted, selected: p.accent }} minimizeBehavior="onScrollDown">
-        <NativeTabs.Trigger name="index">
+    <GlassTargets nativeBar onCreate={openCreate}>
+      {/* Home drives its glass bar from the feed's scroll offset. The other tabs keep the system bar. */}
+      <NativeTabs tintColor={p.accent} iconColor={{ default: p.muted, selected: p.accent }}
+        hidden={isHome} disableHiddenAnimation minimizeBehavior="never">
+        <NativeTabs.Trigger name="index" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} />
           <NativeTabs.Trigger.Label>{t.home}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
