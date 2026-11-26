@@ -7,7 +7,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import Storage from 'expo-sqlite/kv-store';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, BackHandler, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, BackHandler, Pressable, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { AnnualBars, monthName } from '../../components/AnnualBars';
 import { TabContent, useTabClearance } from '../../components/GlassTabBar';
@@ -18,7 +18,7 @@ import { allOutings, deleteOutings } from '../../db/diary';
 import { localDate, PAGE_SIZE, photoList } from '../../db/model';
 import type { Outing, OutingType, Photo } from '../../db/model';
 import { useDiary } from '../../db/useDiary';
-import { locale, t } from '../../i18n';
+import { formatDiaryCount, locale, t } from '../../i18n';
 import { backend, useSession } from '../../services/backend';
 import { exportPhotos, photoSource, removeAllPhotos } from '../../services/photos';
 import { annualStats, diaryStats } from '../../services/stats';
@@ -110,6 +110,8 @@ export default function Profile() {
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [gridWidth, setGridWidth] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [annualOpen, setAnnualOpen] = useState(false);
+  const [recordsOpen, setRecordsOpen] = useState(false);
   const [tab, setTab] = useState<GridTab>('outings');
   const [species, setSpecies] = useState<string>();
   const [identity, setIdentity] = useState<{ viewer?: string; data: Identity }>();
@@ -150,6 +152,14 @@ export default function Profile() {
   }, [outings]);
   const activeSpecies = speciesOptions.some(([key]) => key === species) ? species : undefined;
   const tiles = useMemo(() => makeTiles(outings, tab, activeSpecies), [activeSpecies, outings, tab]);
+  const sections = useMemo(() => {
+    const data: GridTile[][] = [];
+    if (gridWidth > profileSide * 2 + gridGap * 2) {
+      const visible = tiles.slice(0, limit);
+      for (let index = 0; index < visible.length; index += 3) data.push(visible.slice(index, index + 3));
+    }
+    return [{ key: 'photos', data }];
+  }, [gridWidth, limit, tiles]);
   const stats = useMemo(() => diaryStats(outings), [outings]);
   const tileWidth = Math.max(0, (gridWidth - profileSide * 2 - gridGap * 2) / 3);
   const year = Number(today.slice(0, 4));
@@ -215,17 +225,17 @@ export default function Profile() {
 
   const bestSize = stats.biggestCatch ? `${numberFormatter.format(stats.biggestCatch.size)} ${t.units.cm}` : '—';
   const counts = [
-    [t.outings, numberFormatter.format(outings.length)],
-    [t.catches, numberFormatter.format(stats.catches)],
+    [t.outingUnit(outings.length), numberFormatter.format(outings.length)],
+    [t.catchUnit(stats.catches), numberFormatter.format(stats.catches)],
     [t.largestCatch, bestSize],
     [t.totalKm, `${numberFormatter.format(stats.distance)} ${t.units.km}`],
     [t.lastOuting, outings[0] ? formatLastOuting(outings[0].date, today) : '—'],
   ];
-  const recordMonth = stats.mostActiveMonth?.key;
+  const recordMonth = stats.mostActiveMonth;
   const records = [
     [t.largestCatch, stats.biggestCatch ? `${stats.biggestCatch.capture.species || t.species} · ${bestSize}` : '—'],
     [t.longestOuting, stats.longestOuting ? `${stats.longestOuting.outing.title} · ${numberFormatter.format(stats.longestOuting.distance)} ${t.units.km}` : '—'],
-    [t.mostActiveMonth, recordMonth ? `${monthName(Number(recordMonth.slice(5, 7)) - 1)} ${recordMonth.slice(0, 4)} · ${stats.mostActiveMonth?.count}` : '—'],
+    [t.mostActiveMonth, recordMonth ? `${monthName(Number(recordMonth.key.slice(5, 7)) - 1)} ${recordMonth.key.slice(0, 4)} · ${formatDiaryCount(recordMonth.count, 'outings')}` : '—'],
   ];
   const openStats = (month?: number) => router.push({ pathname: '/stats', params: {
     year: String(year), ...(month === undefined ? {} : { month: String(month + 1) }),
@@ -254,13 +264,12 @@ export default function Profile() {
       action={<IconButton name="menu-outline" label={t.profileMenu} align="end" expanded={menuOpen}
         onPress={() => setMenuOpen((open) => !open)} />} />
     <View style={styles.screen}>
-      <FlatList data={tileWidth ? tiles.slice(0, limit) : []} numColumns={3} keyExtractor={(item) => item.key}
+      <SectionList sections={sections} stickySectionHeadersEnabled keyExtractor={(row) => row[0].key}
         onEndReached={() => { if (limit < tiles.length) setLimit((value) => value + PAGE_SIZE); }}
         accessibilityElementsHidden={menuOpen} importantForAccessibility={menuOpen ? 'no-hide-descendants' : 'auto'}
         style={styles.screen} contentInsetAdjustmentBehavior="never" keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets
         onLayout={({ nativeEvent }) => setGridWidth(nativeEvent.layout.width)}
         contentContainerStyle={{ paddingBottom: tabClearance, paddingHorizontal: profileSide }}
-        columnWrapperStyle={{ gap: gridGap, marginBottom: gridGap }}
         ListHeaderComponent={(items || error) ? <View style={profileStyles.summary}>
           <View style={profileStyles.identity}>
             <View style={[profileStyles.avatarRing, { borderColor: p.accent }]}>
@@ -269,17 +278,15 @@ export default function Profile() {
                 : <Avatar size={avatarSize} />}
             </View>
             <View style={profileStyles.identityText}>
-              <View style={profileStyles.nameRow}>
-                <Text accessibilityRole="header" numberOfLines={2} style={[profileStyles.name, { color: p.ink }]}>{name}</Text>
-                {!draft && <Pressable cssInterop={false} accessibilityRole="button" accessibilityLabel={t.editProfile} hitSlop={6}
-                  onPress={() => { if (viewer) router.push('/account'); else setDraft(currentIdentity); }}
-                  style={({ pressed }) => [profileStyles.edit, { borderColor: p.line, backgroundColor: pressed ? p.soft : p.surface }]}>
-                  <Ionicons name="pencil-outline" size={13} color={p.accent} />
-                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
-                    style={[profileStyles.editLabel, { color: p.accent }]}>{t.editProfile}</Text>
-                </Pressable>}
-              </View>
+              <Text accessibilityRole="header" numberOfLines={2} style={[profileStyles.name, { color: p.ink }]}>{name}</Text>
               <Text numberOfLines={1} style={[profileStyles.handle, { color: p.accent }]}>{handle}</Text>
+              {!draft && <Pressable cssInterop={false} accessibilityRole="button" accessibilityLabel={t.editProfile} hitSlop={4}
+                onPress={() => { if (viewer) router.push('/account'); else setDraft(currentIdentity); }}
+                style={({ pressed }) => [profileStyles.edit, { borderColor: p.line, backgroundColor: pressed ? p.soft : p.surface }]}>
+                <Ionicons name="pencil-outline" size={13} color={p.accent} />
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
+                  style={[profileStyles.editLabel, { color: p.accent }]}>{t.editProfile}</Text>
+              </Pressable>}
               {!!currentIdentity.bio.trim() && <Text numberOfLines={2} style={[profileStyles.bio, { color: p.muted }]}>{currentIdentity.bio.trim()}</Text>}
             </View>
           </View>
@@ -294,31 +301,43 @@ export default function Profile() {
               <Button label={t.saveProfile} primary stretch disabled={busy || !draft.display_name.trim()} onPress={() => void saveIdentity()} />
             </View>
           </View> : null}
-          <View style={profileStyles.counts}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={profileStyles.counts}>
             {counts.map(([label, count]) => <View key={label} style={[profileStyles.stat, { backgroundColor: p.field }]}>
               <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}
                 style={[profileStyles.count, { color: p.accent }]}>{items ? count : '—'}</Text>
-              <Text style={[profileStyles.statLabel, { color: p.muted }]}>{label}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
+                style={[profileStyles.statLabel, { color: p.muted }]}>{label}</Text>
             </View>)}
-          </View>
+          </ScrollView>
           <View style={[profileStyles.annual, { backgroundColor: p.field }]}>
-            <Pressable accessibilityRole="button" accessibilityLabel={`${t.annual}, ${year}`}
-              onPress={() => openStats()} style={profileStyles.annualHeading}>
-              <View style={profileStyles.annualCopy}>
-                <Text style={[profileStyles.annualTitle, { color: p.ink }]}>{t.annual}</Text>
-                <Text style={[profileStyles.total, { color: p.muted }]}>{year} · {annual.total} {t.outings.toLocaleLowerCase(locale)} · {annual.catches} {t.catches.toLocaleLowerCase(locale)}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={14} color={p.accent} />
+            <Pressable accessibilityRole="button" accessibilityState={{ expanded: annualOpen }}
+              onPress={() => setAnnualOpen((open) => !open)} style={profileStyles.annualHeading}>
+              <Text style={[profileStyles.annualTitle, profileStyles.annualCopy, { color: p.ink }]}>{t.annual}</Text>
+              <Ionicons name={annualOpen ? 'chevron-up' : 'chevron-down'} size={16} color={p.accent} />
             </Pressable>
-            <AnnualBars counts={annual.months} active={currentMonth} onSelect={openStats} />
+            {annualOpen && <View style={profileStyles.sectionBody}>
+              <Text style={[profileStyles.total, { color: p.muted }]}>
+                {`${year} · ${formatDiaryCount(annual.total, 'outings')} · ${formatDiaryCount(annual.catches, 'catches')}`}
+              </Text>
+              <AnnualBars counts={annual.months} active={currentMonth} onSelect={openStats} />
+              <Button label={t.viewAnnualStats} onPress={() => openStats()} />
+            </View>}
           </View>
           <View style={[profileStyles.annual, { backgroundColor: p.field }]}>
-            <Text style={[profileStyles.annualTitle, { color: p.ink }]}>{t.records}</Text>
-            {records.map(([label, value]) => <View key={label} style={profileStyles.record}>
-              <Text style={[profileStyles.recordLabel, { color: p.muted }]}>{label}</Text>
-              <Text style={[profileStyles.recordValue, { color: p.accent }]}>{value}</Text>
-            </View>)}
+            <Pressable accessibilityRole="button" accessibilityState={{ expanded: recordsOpen }}
+              onPress={() => setRecordsOpen((open) => !open)} style={profileStyles.annualHeading}>
+              <Text style={[profileStyles.annualTitle, profileStyles.annualCopy, { color: p.ink }]}>{t.records}</Text>
+              <Ionicons name={recordsOpen ? 'chevron-up' : 'chevron-down'} size={16} color={p.accent} />
+            </Pressable>
+            {recordsOpen && <View style={profileStyles.sectionBody}>
+              {records.map(([label, value]) => <View key={label} style={profileStyles.record}>
+                <Text numberOfLines={1} ellipsizeMode="tail" style={[profileStyles.recordLabel, { color: p.muted }]}>{label}</Text>
+                <Text numberOfLines={1} ellipsizeMode="tail" style={[profileStyles.recordValue, { color: p.accent }]}>{value}</Text>
+              </View>)}
+            </View>}
           </View>
+        </View> : undefined}
+        renderSectionHeader={() => (items || error) ? <View style={{ backgroundColor: p.bg }}>
           <View accessibilityRole="tablist" style={profileStyles.tabs}>
             {gridTabs.map((key) => <Pressable key={key} cssInterop={false} accessibilityRole="tab"
               accessibilityState={{ selected: tab === key }} onPress={() => { setTab(key); setLimit(PAGE_SIZE); }}
@@ -333,14 +352,14 @@ export default function Profile() {
             {speciesOptions.map(([key, name]) => <Button key={key} label={name} selected={key === activeSpecies}
               onPress={() => { setSpecies(key); setLimit(PAGE_SIZE); }} />)}
           </ScrollView>}
-        </View> : undefined}
-        ListEmptyComponent={!tiles.length ? empty : undefined}
+        </View> : null}
+        renderSectionFooter={() => !tiles.length ? empty : null}
         ListFooterComponent={footer}
-        renderItem={({ item }) => {
+        renderItem={({ item: row }) => <View style={profileStyles.gridRow}>{row.map((item) => {
           const date = formatDate(item.date);
           const measured = item.length > 0 ? `${numberFormatter.format(item.length)} ${t.units.cm}` : '';
           const catchLabel = [item.species, measured].filter(Boolean).join(' · ') || t.catches;
-          return <Link href={{ pathname: '/outing/[id]', params: { id: item.id } }} asChild>
+          return <Link key={item.key} href={{ pathname: '/outing/[id]', params: { id: item.id } }} asChild>
             <Pressable accessibilityRole="button"
               accessibilityLabel={[item.title, t[item.type], date, item.hasCatch && catchLabel].filter(Boolean).join(', ')}
               style={StyleSheet.flatten([profileStyles.tile, { width: tileWidth, backgroundColor: p.soft }])}>
@@ -371,7 +390,7 @@ export default function Profile() {
               </View>
             </Pressable>
           </Link>;
-        }} />
+        })}</View>} />
       {menuOpen && <>
         <Pressable accessibilityRole="button" accessibilityLabel={t.closeMenu}
           onPress={() => setMenuOpen(false)} style={profileStyles.scrim} />
@@ -381,7 +400,7 @@ export default function Profile() {
             {menuItem(t.searchDiary, 'search-outline', () => router.push('/diary-search'))}
             {menuItem(t.export, 'download-outline', () => void exportData(), false, busy)}
             {viewer && menuItem(t.posts, 'images-outline', () => router.push({ pathname: '/user/[id]', params: { id: viewer } }))}
-            {menuItem(t.account, 'person-circle-outline', () => router.push('/account'))}
+            {menuItem(t.account, 'settings-outline', () => router.push('/account'))}
             <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: p.line }} />
             {menuItem(t.deleteSamples, 'trash-outline', () => confirm(true), false, busy || !items?.some((item) => item.sample))}
             {menuItem(t.deleteAll, 'alert-circle-outline', () => confirm(false), true, busy)}
@@ -402,29 +421,30 @@ const profileStyles = StyleSheet.create({
   identityText: { flex: 1, minWidth: 0, gap: 2 },
   avatarRing: { padding: 3, borderWidth: 1, borderRadius: (avatarSize + 8) / 2 },
   avatar: { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 },
   name: { maxWidth: '100%', flexShrink: 1, fontSize: 20, fontWeight: '700' },
-  edit: { flexDirection: 'row', gap: 4, minHeight: 32, maxWidth: '100%', alignItems: 'center',
-    paddingHorizontal: 8, borderWidth: StyleSheet.hairlineWidth, borderRadius: 8 },
+  edit: { flexDirection: 'row', gap: 4, height: 36, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center',
+    marginTop: 4, paddingHorizontal: 8, borderWidth: StyleSheet.hairlineWidth, borderRadius: 8 },
   editLabel: { flexShrink: 1, fontSize: 12, fontWeight: '700' },
   handle: { fontSize: 13 },
   bio: { fontSize: 13 },
-  counts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 8 },
-  stat: { flexGrow: 1, flexBasis: '29%', minWidth: 0, padding: 8, borderRadius: 12, alignItems: 'center', gap: 2 },
+  counts: { gap: 6 },
+  stat: { width: 94, minWidth: 0, padding: 6, borderRadius: 10, alignItems: 'center', gap: 2 },
   count: { width: '100%', textAlign: 'center', fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  statLabel: { fontSize: 11, textAlign: 'center', width: '100%' },
-  annual: { borderRadius: 12, padding: 10, gap: 8 },
+  statLabel: { fontSize: 11, textAlign: 'center', width: '100%', textTransform: 'capitalize' },
+  annual: { borderRadius: 10, paddingHorizontal: 10 },
   annualHeading: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  record: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  recordLabel: { flex: 1, fontSize: 12 },
-  recordValue: { flex: 1, textAlign: 'right', fontSize: 13, fontWeight: '700' },
+  sectionBody: { gap: 8, paddingBottom: 10 },
+  record: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', columnGap: 8, rowGap: 3 },
+  recordLabel: { maxWidth: '100%', fontSize: 12 },
+  recordValue: { maxWidth: '100%', fontSize: 13, fontWeight: '700' },
   speciesFilters: { gap: 8, paddingVertical: 4 },
-  annualCopy: { flex: 1, minWidth: 0, gap: 2 },
+  annualCopy: { flex: 1, minWidth: 0 },
   annualTitle: { fontSize: 14, fontWeight: '700' },
   total: { fontSize: 11 },
   tabs: { flexDirection: 'row' },
   tab: { flex: 1, minWidth: 0, justifyContent: 'center', minHeight: 44, borderBottomWidth: 2, paddingHorizontal: 4 },
   tabLabel: { textAlign: 'center', fontSize: 14, fontWeight: '700' },
+  gridRow: { flexDirection: 'row', gap: gridGap, marginBottom: gridGap },
   tile: { aspectRatio: 1, borderRadius: 9, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   tileShade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '60%' },
   tileMeta: { position: 'absolute', left: 4, right: 4, bottom: 4, alignItems: 'flex-start', gap: 2 },

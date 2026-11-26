@@ -15,6 +15,9 @@ const es = {
   cameraDenied: 'Permite el acceso a la cámara para hacer una foto.',
   cameraError: 'No se pudo abrir la cámara o guardar la foto.', settings: 'Abrir ajustes',
   catches: 'Capturas', addCatch: 'Añadir captura', removeCatch: 'Quitar captura',
+  outingUnit: (count: number): string => count === 1 ? 'salida' : 'salidas',
+  catchUnit: (count: number): string => count === 1 ? 'captura' : 'capturas',
+  viewAnnualStats: 'Ver estadísticas anuales',
   editCatch: 'Editar captura', saveCatch: 'Guardar captura', catchSpeciesRequired: 'Escribe la especie de la captura.',
   catchWeather: 'Tiempo', sunny: 'Soleado', cloudy: 'Nublado',
   catchReleased: 'Se soltó', catchKept: 'Se quedó', optionalField: 'Opcional',
@@ -152,9 +155,16 @@ const es = {
   likes: (count: number) => count === 1 ? '1 Me gusta' : `${count} Me gusta`,
 };
 
+function romanianCountUnit(count: number, singular: string, plural: string) {
+  if (count === 1) return singular;
+  return count >= 20 && (count % 100 === 0 || count % 100 >= 20) ? `de ${plural}` : plural;
+}
+
 const translations: Record<Locale, Partial<typeof es>> = {
   es,
   en: {
+    outingUnit: (count) => count === 1 ? 'outing' : 'outings', catchUnit: (count) => count === 1 ? 'catch' : 'catches',
+    viewAnnualStats: 'View annual statistics',
     editCatch: 'Edit catch', saveCatch: 'Save catch', catchSpeciesRequired: 'Enter the species of the catch.',
     catchWeather: 'Weather', sunny: 'Sunny', cloudy: 'Cloudy', rain: 'Rain', wind: 'Wind',
     catchReleased: 'Released', catchKept: 'Kept', optionalField: 'Optional',
@@ -211,6 +221,8 @@ const translations: Record<Locale, Partial<typeof es>> = {
     mapLocationDenied: 'Allow location access to centre the map near you.',
   },
   ro: {
+    outingUnit: (count) => romanianCountUnit(count, 'ieșire', 'ieșiri'),
+    catchUnit: (count) => romanianCountUnit(count, 'captură', 'capturi'), viewAnnualStats: 'Vezi statisticile anuale',
     editCatch: 'Editează captura', saveCatch: 'Salvează captura', catchSpeciesRequired: 'Introdu specia capturii.',
     catchWeather: 'Vreme', sunny: 'Soare', cloudy: 'Înnorat', rain: 'Ploaie', wind: 'Vânt',
     catchReleased: 'Eliberată', catchKept: 'Păstrată', optionalField: 'Opțional',
@@ -271,6 +283,11 @@ const translations: Record<Locale, Partial<typeof es>> = {
 };
 export const locale: Locale = 'es';
 export const t = { ...es, ...translations[locale] };
+const countFormatter = new Intl.NumberFormat(locale);
+
+export function formatDiaryCount(count: number, unit: 'outings' | 'catches') {
+  return `${countFormatter.format(count)} ${unit === 'outings' ? t.outingUnit(count) : t.catchUnit(count)}`;
+}
 
 export function relativeDate(date: string) {
   const [year, month, day] = date.split('-').map(Number);

@@ -62,7 +62,8 @@ export default function Stats() {
           </View>}
           <View style={{ gap: 8 }}>
             {[
-              [t.outings, stats.total], [t.catches, stats.catches], [t.totalKm, number.format(stats.distance)],
+              [t.outingUnit(stats.total), number.format(stats.total)], [t.catchUnit(stats.catches), number.format(stats.catches)],
+              [t.totalKm, number.format(stats.distance)],
               [t.bestMonth, stats.bestMonth == null ? t.unavailable : monthName(stats.bestMonth)],
               [t.bestBait, stats.bestBait ?? t.unavailable],
               [t.bestTime, hour ? `${hour}:00–${hour}:59` : t.unavailable],
