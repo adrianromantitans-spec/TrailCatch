@@ -18,26 +18,24 @@ const compactBarHeight = 54;
 const compactSideInset = 12;
 const tabCount = 5;
 const pillInset = 6;
-const AnimatedGlassView = Animated.createAnimatedComponent(GlassView);
 const tabMotion = {
-  // Reanimated uses a perceptual duration. The spring settles in about 430 ms.
-  slideDuration: 285,
-  dampingRatio: 0.58,
-  edgeOverrun: 5,
-  pillStretch: 6,
+  // Reanimated uses a perceptual duration. The spring settles in about 410 ms.
+  slideDuration: 275,
+  dampingRatio: 0.78,
+  edgeOverrun: 3,
   tintDuration: 190,
   popScale: 1.15,
   popUp: 85,
   popDown: 170,
   pressScale: 0.98,
   pressDuration: 110,
-  releaseDuration: 180,
 };
 const barBottom = (inset: number) => Math.max(inset, 8) + 8;
 
 export function useTabClearance() {
   const { bottom } = useSafeAreaInsets();
-  return barHeight + barBottom(bottom) + 16;
+  const nativeBar = useContext(TargetContext)?.nativeBar;
+  return nativeBar ? bottom + 16 : barHeight + barBottom(bottom) + 16;
 }
 
 export const tabNames = ['index', 'map', 'explore', 'profile'] as const;
@@ -46,14 +44,14 @@ const icons: Record<TabName, IconName> = {
   index: 'home-outline', map: 'map-outline', explore: 'search-outline', profile: 'person-outline',
 };
 type Targets = Record<TabName, ReturnType<typeof createRef<ComponentRef<typeof View>>>>;
-const TargetContext = createContext<{ targets: Targets; homeCompact: SharedValue<boolean> } | null>(null);
+const TargetContext = createContext<{ targets: Targets; homeCompact?: SharedValue<boolean>; nativeBar: boolean } | null>(null);
 
-export function GlassTargets({ children }: PropsWithChildren) {
+export function GlassTargets({ children, nativeBar = false }: PropsWithChildren<{ nativeBar?: boolean }>) {
   const [targets] = useState<Targets>(() => ({
     index: createRef<ComponentRef<typeof View>>(), map: createRef<ComponentRef<typeof View>>(), explore: createRef<ComponentRef<typeof View>>(), profile: createRef<ComponentRef<typeof View>>(),
   }));
   const homeCompact = useSharedValue(false);
-  return <TargetContext.Provider value={{ targets, homeCompact }}>{children}</TargetContext.Provider>;
+  return <TargetContext.Provider value={{ targets, homeCompact: nativeBar ? undefined : homeCompact, nativeBar }}>{children}</TargetContext.Provider>;
 }
 
 export function TabContent({ name, children }: PropsWithChildren<{ name: TabName }>) {
@@ -68,6 +66,7 @@ type ScrollContext = { y?: number; travel?: number };
 export function useHomeTabScroll(headerHeight = 0) {
   const context = useContext(TargetContext);
   const compact = context?.homeCompact;
+  const nativeBar = context?.nativeBar ?? false;
   const headerOffset = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler<ScrollContext>({
     onBeginDrag(event, context) {
@@ -95,7 +94,7 @@ export function useHomeTabScroll(headerHeight = 0) {
       else if (compact.get() && context.travel <= -10) compact.set(false);
     },
   });
-  return { onScroll, compact, headerOffset };
+  return { onScroll, compact, headerOffset, nativeBar };
 }
 
 type Props = BottomTabBarProps & { onCreate: () => void };
@@ -167,32 +166,23 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
   const corners = useAnimatedStyle(() => ({ borderRadius: (barHeight - (barHeight - compactBarHeight) * compact.get()) / 2 }));
   const indicator = useAnimatedStyle(() => {
     const slot = Math.max(0, width - 2 - 2 * maxInset * compact.get()) / tabCount;
-    const position = selectedSlot.get();
-    const flex = Math.min(1, Math.abs(position - slotIndex));
-    const stretch = flex * tabMotion.pillStretch;
     const translateX = Math.max(-tabMotion.edgeOverrun,
-      Math.min((tabCount - 1) * slot + tabMotion.edgeOverrun - stretch, position * slot - stretch / 2));
-    return {
-      width: Math.max(0, slot - 2 * pillInset) + stretch,
-      transform: [{ translateX }, { scaleY: 1 - 0.08 * flex }],
-    };
+      Math.min((tabCount - 1) * slot + tabMotion.edgeOverrun, selectedSlot.get() * slot));
+    return { width: Math.max(0, slot - 2 * pillInset), transform: [{ translateX }] };
   });
   const labelMotion = useAnimatedStyle<ViewStyle>(() => {
     const visible = 1 - compact.get();
     return { opacity: visible, height: 16 * visible, marginTop: 2 * visible };
   });
   const plus = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() * (1 - compact.get() * 0.09) / barScale.get() }] }));
-  const ios = Platform.OS === 'ios';
-  const nativeGlass = ios && isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
-  const blur = ios || (Platform.OS === 'android' && Number(Platform.Version) >= 31);
+  const nativeGlass = Platform.OS === 'ios' && isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
+  const blur = Platform.OS === 'ios' || (Platform.OS === 'android' && Number(Platform.Version) >= 31);
   const target = context?.targets[active];
 
   function pressBar(pressed: boolean) {
-    barScale.set(pressed
-      ? withTiming(tabMotion.pressScale, {
-        duration: tabMotion.pressDuration, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System,
-      })
-      : withSpring(1, { duration: tabMotion.releaseDuration, dampingRatio: 0.55, reduceMotion: ReduceMotion.System }));
+    barScale.set(withTiming(pressed ? tabMotion.pressScale : 1, {
+      duration: tabMotion.pressDuration, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System,
+    }));
   }
 
   function tab(name: TabName) {
@@ -216,50 +206,45 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
     );
   }
 
-  const tabRow = <View style={styles.tabRow}>
-    {width > 0 && <Animated.View pointerEvents="none" style={[styles.indicator,
-      { backgroundColor: nativeGlass ? '#87B89B40' : p.soft }, indicator]} />}
-    {tab('index')}
-    {tab('map')}
-    <Pressable accessibilityRole="button" accessibilityLabel={t.createMenu} style={styles.slot}
-      onPressIn={() => { scale.set(withSpring(0.88)); }}
-      onPressOut={() => { scale.set(withSpring(1)); }}
-      onPress={() => {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-        onCreate();
-      }}>
-      <Animated.View style={[styles.plus, { backgroundColor: brandGreen }, plus]}>
-        <Ionicons name="add" size={24} color={onBrand} />
-      </Animated.View>
-      <Animated.View style={[styles.caption, labelMotion]}>
-        <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.2}
-          style={[styles.label, { color: p.accent }]}>{t.createMenu}</Animated.Text>
-      </Animated.View>
-    </Pressable>
-    {tab('explore')}
-    {tab('profile')}
-  </View>;
-
   return (
     <View pointerEvents="box-none"
       style={[styles.outer, { bottom: barBottom(inset.bottom), left: inset.left + side, right: inset.right + side }]}>
       <Animated.View style={[styles.shadow, frame]}>
-        {nativeGlass ? (
-          <AnimatedGlassView glassEffectStyle="regular" isInteractive colorScheme="light"
-            tintColor="#F2FFF42B" style={[styles.surface, corners]}>
-            {tabRow}
-          </AnimatedGlassView>
-        ) : (
-          <Animated.View style={[styles.surface, styles.fallbackClip, corners, {
-            backgroundColor: ios ? '#FFFFFFA6' : blur ? p.glass : p.glassSolid, borderColor: p.line,
-          }]}>
-            {blur && <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-              <BlurView key={active} blurTarget={target} experimentalBlurMethod="dimezisBlurView"
-                tint="light" intensity={ios ? 48 : 35} style={StyleSheet.absoluteFill} />
-            </View>}
-            {tabRow}
-          </Animated.View>
-        )}
+        <Animated.View style={[styles.pill, corners, {
+          backgroundColor: nativeGlass ? 'transparent' : blur ? p.glass : p.glassSolid,
+          borderColor: nativeGlass ? '#FFFFFFA6' : p.line,
+        }]}>
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            {nativeGlass ? <GlassView glassEffectStyle="regular" colorScheme="light"
+                tintColor="#FFFFFF66" style={StyleSheet.absoluteFill} />
+              : blur && <BlurView key={active} blurTarget={target}
+                experimentalBlurMethod="dimezisBlurView"
+                tint="light" intensity={35} style={StyleSheet.absoluteFill} />}
+          </View>
+          <View style={styles.tabRow}>
+            {width > 0 && <Animated.View pointerEvents="none" style={[styles.indicator,
+              { backgroundColor: nativeGlass ? '#E7F1EBD9' : p.soft }, indicator]} />}
+            {tab('index')}
+            {tab('map')}
+            <Pressable accessibilityRole="button" accessibilityLabel={t.createMenu} style={styles.slot}
+              onPressIn={() => { scale.set(withSpring(0.88)); }}
+              onPressOut={() => { scale.set(withSpring(1)); }}
+              onPress={() => {
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                onCreate();
+              }}>
+              <Animated.View style={[styles.plus, { backgroundColor: brandGreen }, plus]}>
+                <Ionicons name="add" size={24} color={onBrand} />
+              </Animated.View>
+              <Animated.View style={[styles.caption, labelMotion]}>
+                <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.2}
+                  style={[styles.label, { color: p.accent }]}>{t.createMenu}</Animated.Text>
+              </Animated.View>
+            </Pressable>
+            {tab('explore')}
+            {tab('profile')}
+          </View>
+        </Animated.View>
       </Animated.View>
     </View>
   );
@@ -270,8 +255,7 @@ const styles = StyleSheet.create({
   outer: { position: 'absolute' },
   shadow: { shadowColor: '#14251D', elevation: 5, shadowOpacity: 0.15, shadowRadius: 12,
     shadowOffset: { width: 0, height: 5 } },
-  surface: { flex: 1, borderWidth: 1, borderColor: 'transparent' },
-  fallbackClip: { overflow: 'hidden' },
+  pill: { flex: 1, borderWidth: 1, overflow: 'hidden' },
   tabRow: { flex: 1, flexDirection: 'row' },
   tabIcon: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   slot: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' },

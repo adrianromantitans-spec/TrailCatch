@@ -1,9 +1,8 @@
 import * as Location from 'expo-location';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import type { Ref } from 'react';
 import { Alert, View } from 'react-native';
-import type { FlatList, FlatListProps } from 'react-native';
+import type { FlatListProps } from 'react-native';
 import type { Gesture } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import type { Point } from '../db/model';
@@ -15,8 +14,8 @@ import { FeedSkeleton } from './FeedCard';
 import { SocialPostCard } from './SocialPostCard';
 import { Button, Notice, styles } from './ui';
 
-export function SocialFeed({ mode, bottom, top, listRef, onScroll, feedSwipe }: {
-  mode: FeedMode; bottom: number; top: number; listRef?: Ref<FlatList<SocialPost>>; onScroll?: FlatListProps<SocialPost>['onScroll'];
+export function SocialFeed({ mode, bottom, top, nativeBar, onScroll, feedSwipe }: {
+  mode: FeedMode; bottom: number; top: number; nativeBar: boolean; onScroll?: FlatListProps<SocialPost>['onScroll'];
   feedSwipe?: ReturnType<typeof Gesture.Pan>;
 }) {
   const router = useRouter();
@@ -98,10 +97,11 @@ export function SocialFeed({ mode, bottom, top, listRef, onScroll, feedSwipe }: 
     <Button label={locating ? t.loading : t.myLocation} disabled={locating} onPress={() => void locate()} icon="locate-outline" />
   </View> : failed ? undefined : posts ? <Notice message={t.noPosts} /> : <FeedSkeleton />;
 
-  return <Animated.FlatList ref={listRef} onScroll={onScroll}
+  // Keep the vertical scroll view mounted while loading so the native tab bar can track it.
+  return <Animated.FlatList onScroll={onScroll}
     scrollEventThrottle={16} style={styles.screen} data={posts ?? []} keyExtractor={(item) => item.id}
     windowSize={5} initialNumToRender={3} maxToRenderPerBatch={5}
-    contentInsetAdjustmentBehavior="never" progressViewOffset={top}
+    contentInsetAdjustmentBehavior={nativeBar ? 'automatic' : 'never'} progressViewOffset={top}
     contentContainerStyle={{ paddingTop: top, paddingBottom: bottom }}
     refreshing={refreshing} onRefresh={needsSignIn || needsLocation ? undefined : () => void load(true)} onEndReached={() => void load(false)}
     ListEmptyComponent={empty}
