@@ -1,7 +1,5 @@
-import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { Redirect, Tabs, usePathname, useRouter } from 'expo-router';
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { ActivityIndicator, Alert, Platform, View } from 'react-native';
+import { Redirect, Tabs, useRouter } from 'expo-router';
+import { ActivityIndicator, Alert, View } from 'react-native';
 import { GlassTabBar, GlassTargets } from '../../components/GlassTabBar';
 import { usePalette } from '../../components/ui';
 import { t } from '../../i18n';
@@ -9,7 +7,6 @@ import { backend, useSession } from '../../services/backend';
 
 export default function TabsLayout() {
   const router = useRouter();
-  const isHome = usePathname() === '/';
   const p = usePalette();
   const { session, guest, loading, profileSetup } = useSession();
   if (loading || profileSetup === 'checking') return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: p.bg }}>
@@ -25,39 +22,6 @@ export default function TabsLayout() {
       { text: t.newPost, onPress: () => router.push('/post/create') },
     ]);
   };
-  const useNativeBar = Platform.OS === 'ios' && isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
-
-  if (useNativeBar) return (
-    <GlassTargets nativeBar onCreate={openCreate}>
-      {/* Home drives its glass bar from the feed's scroll offset. The other tabs keep the system bar. */}
-      <NativeTabs tintColor={p.accent} iconColor={{ default: p.muted, selected: p.accent }}
-        hidden={isHome} disableHiddenAnimation minimizeBehavior="never">
-        <NativeTabs.Trigger name="index" disableAutomaticContentInsets>
-          <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} />
-          <NativeTabs.Trigger.Label>{t.home}</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="map" disableAutomaticContentInsets>
-          <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} />
-          <NativeTabs.Trigger.Label>{t.map}</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="create-action" disabled disableAutomaticContentInsets listeners={{
-          tabPress: ({ data }) => { if (data.isPrevented) openCreate(); },
-        }}>
-          <NativeTabs.Trigger.Icon sf="plus.circle.fill" />
-          <NativeTabs.Trigger.Label>{t.createMenu}</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="explore" disableAutomaticContentInsets>
-          <NativeTabs.Trigger.Icon sf="magnifyingglass" />
-          <NativeTabs.Trigger.Label>{t.search}</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="profile" disableAutomaticContentInsets>
-          <NativeTabs.Trigger.Icon sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }} />
-          <NativeTabs.Trigger.Label>{t.profile}</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-      </NativeTabs>
-    </GlassTargets>
-  );
-
   return (
     <GlassTargets>
       <Tabs screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: p.bg } }}

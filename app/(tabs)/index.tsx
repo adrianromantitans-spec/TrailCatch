@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, useScrollToTop } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, View } from 'react-native';
@@ -8,7 +8,7 @@ import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 import { FeedCard, FeedSkeleton } from '../../components/FeedCard';
-import { HomeGlassTabBar, TabContent, useHomeTabClearance, useHomeTabScroll } from '../../components/GlassTabBar';
+import { TabContent, useHomeTabScroll, useTabClearance } from '../../components/GlassTabBar';
 import { HomeHeader, homeHeaderHeight, homeModes } from '../../components/HomeHeader';
 import type { HomeMode } from '../../components/HomeHeader';
 import { SocialFeed } from '../../components/SocialFeed';
@@ -46,10 +46,11 @@ export default function Feed() {
     }, check).subscribe();
     return () => { active = false; void client.removeChannel(channel); };
   }, [viewer]));
-  const bottom = useHomeTabClearance();
+  const bottom = useTabClearance();
   const [mode, setMode] = useState<HomeMode>(backend && !guest ? 'following' : 'local');
   const diaryList = useRef<FlatList<Outing>>(null);
   const socialList = useRef<FlatList<SocialPost>>(null);
+  useScrollToTop(mode === 'local' ? diaryList : socialList);
   const headerHeight = homeHeaderHeight(!!backend);
   const { onScroll, compact, headerOffset } = useHomeTabScroll(headerHeight);
   useFocusEffect(useCallback(() => () => { compact?.set(false); headerOffset.set(0); }, [compact, headerOffset]));
@@ -105,7 +106,6 @@ export default function Feed() {
             onNotifications={() => router.push('/notifications')} onSelect={selectMode} />
         </View>
       </GestureDetector>
-      <HomeGlassTabBar onHomePress={() => (mode === 'local' ? diaryList.current : socialList.current)?.scrollToOffset({ offset: 0 })} />
     </View>
   </TabContent>;
 }
