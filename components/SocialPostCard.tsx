@@ -2,31 +2,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Share, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useRef, useState } from 'react';
+import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { relativeDate, t } from '../i18n';
 import type { SocialPost } from '../services/social';
 import { FeedActions } from './FeedActions';
-import { feedCardAvatarSize, feedCardHorizontalSpace, feedCardLayout } from './FeedCard';
+import { feedCardAvatarSize, feedCardLayout } from './FeedCard';
+import { FeedPhotos } from './FeedPhotos';
+import type { FeedSwipe } from './FeedPhotos';
 import { Avatar, Button, onBrand, styles, usePalette } from './ui';
 
 export function SocialPostCard({ post, viewer, onLike, onSave, onFollow, feedSwipe }: {
   post: SocialPost; viewer?: string; onLike: (value: boolean) => void; onSave: () => void; onFollow: () => void;
-  feedSwipe?: ReturnType<typeof Gesture.Pan>;
+  feedSwipe?: FeedSwipe;
 }) {
   const p = usePalette();
-  const { width } = useWindowDimensions();
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
-  const [slide, setSlide] = useState(0);
-  const [measuredWidth, setMeasuredWidth] = useState<number>();
-  const mediaWidth = Math.max(1, measuredWidth ?? width - feedCardHorizontalSpace);
   const lastTap = useRef(0);
   const heart = useSharedValue(0);
   const animation = useAnimatedStyle(() => ({ opacity: Math.min(1, heart.value), transform: [{ scale: heart.value }] }));
-  const mediaSwipe = useMemo(() => feedSwipe ? Gesture.Native().blocksExternalGesture(feedSwipe) : undefined, [feedSwipe]);
   const open = () => router.push({ pathname: '/post/[id]', params: { id: post.id } });
   const openComments = () => router.push({ pathname: '/post/comments', params: { id: post.id } });
   const author = post.author?.display_name ?? t.unavailable;
@@ -47,20 +43,12 @@ export function SocialPostCard({ post, viewer, onLike, onSave, onFollow, feedSwi
     } else lastTap.current = now;
   }
 
-  const photos = post.photos.map((photo) => <Pressable key={photo.id} onPress={likePhoto} accessibilityLabel={t.like}
-    style={{ width: mediaWidth }}>
-    <Image source={photo.uri} placeholder={photo.thumbnail} contentFit="cover" placeholderContentFit="cover"
-      cachePolicy="memory" recyclingKey={photo.id} style={[feedCardLayout.photo, { backgroundColor: p.soft }]} />
-  </Pressable>);
-  const carousel = <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}
-    onMomentumScrollEnd={({ nativeEvent }) => setSlide(Math.round(nativeEvent.contentOffset.x / mediaWidth))}>{photos}</ScrollView>;
-
   return <View style={[feedCardLayout.card, { backgroundColor: p.surface, borderColor: p.line }]}>
     <Pressable accessibilityRole="button" accessibilityLabel={author} hitSlop={4}
       onPress={() => router.push({ pathname: '/user/[id]', params: { id: post.user_id } })}>
       {post.author?.avatar_url ? <Image source={post.author.avatar_url} style={feedCardLayout.avatar} /> : <Avatar size={feedCardAvatarSize} />}
     </Pressable>
-    <View style={feedCardLayout.body} onLayout={({ nativeEvent }) => setMeasuredWidth(nativeEvent.layout.width)}>
+    <View style={feedCardLayout.body}>
       <View style={cardStyles.header}>
         <View style={[feedCardLayout.identity, cardStyles.authorText]}>
           <Text numberOfLines={1} style={[feedCardLayout.name, { color: p.ink }]}>{author}</Text>
@@ -76,19 +64,6 @@ export function SocialPostCard({ post, viewer, onLike, onSave, onFollow, feedSwi
       {post.caption.length > 100 && <Text accessibilityRole="button" style={{ color: p.accent }}
         onPress={() => setExpanded(!expanded)}>{expanded ? t.less : t.more}</Text>}
       {post.video && <Button label={t.playReel} icon="play-outline" onPress={open} />}
-      {photos.length > 0 && <View style={cardStyles.media}>
-        {photos.length === 1 ? photos : mediaSwipe ? <GestureDetector gesture={mediaSwipe}>{carousel}</GestureDetector> : carousel}
-        <Animated.View pointerEvents="none" style={[cardStyles.heart, animation]}>
-          <Ionicons name="heart" size={68} color={onBrand} />
-        </Animated.View>
-        {photos.length > 1 && <View style={cardStyles.dots}>
-          {post.photos.map((photo, index) => <View key={photo.id}
-            style={[cardStyles.dot, { backgroundColor: slide === index ? p.accent : p.line }]} />)}
-        </View>}
-      </View>}
-      <FeedActions liked={post.liked} saved={post.saved} likes={post.likes_count} comments={post.comments_count}
-        onComment={openComments} onLike={() => onLike(!post.liked)} onSave={onSave}
-        onShare={() => { void Share.share({ message: post.caption || t.app }).catch(() => {}); }} />
       {!!post.latestComment && <Text numberOfLines={1} style={{ color: p.ink }}>
         <Text style={feedCardLayout.name}>{post.latestComment.author?.display_name ?? t.unavailable}</Text> {post.latestComment.body}
       </Text>}
@@ -102,6 +77,17 @@ export function SocialPostCard({ post, viewer, onLike, onSave, onFollow, feedSwi
             ? () => router.push({ pathname: '/outing/[id]', params: { id: post.trip_id! } })
             : open} />}
       </View>}
+      <FeedPhotos photos={post.photos} photoKey={(photo) => photo.id} feedSwipe={feedSwipe}
+        renderPhoto={(photo) => <Pressable onPress={likePhoto} accessibilityLabel={t.like} style={styles.screen}>
+          <Image source={photo.uri} placeholder={photo.thumbnail} contentFit="cover" placeholderContentFit="cover"
+            cachePolicy="memory" recyclingKey={photo.id} style={[StyleSheet.absoluteFill, { backgroundColor: p.soft }]} />
+        </Pressable>}
+        overlay={<Animated.View pointerEvents="none" style={[cardStyles.heart, animation]}>
+          <Ionicons name="heart" size={68} color={onBrand} />
+        </Animated.View>} />
+      <FeedActions liked={post.liked} saved={post.saved} likes={post.likes_count} comments={post.comments_count}
+        onComment={openComments} onLike={() => onLike(!post.liked)} onSave={onSave}
+        onShare={() => { void Share.share({ message: post.caption || t.app }).catch(() => {}); }} />
     </View>
   </View>;
 }
@@ -110,9 +96,6 @@ const cardStyles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 32 },
   authorText: { flex: 1, minWidth: 0 },
   follow: { maxWidth: '42%', minHeight: 44, justifyContent: 'center' },
-  media: { borderRadius: 16, overflow: 'hidden' },
   heart: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
-  dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingTop: 7 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
   commentLink: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' },
 });

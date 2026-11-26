@@ -22,18 +22,17 @@ export function FeedActions({ liked, saved, likes, comments, onComment, onLike, 
   return <View style={layout.row}>
     {actions.map(({ name, label, color, onPress, count, selected }, index) => <Pressable key={name} cssInterop={false}
       accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected }} onPress={onPress}
-      style={({ pressed }) => [layout.action, index === 0 && layout.first, index === actions.length - 1 && layout.last,
+      style={({ pressed }) => [layout.action, index === actions.length - 1 && layout.last,
         { opacity: pressed ? 0.55 : 1 }]}>
-      <Ionicons name={name} size={20} color={color} />
+      <Ionicons name={name} size={22} color={color} />
       {count !== undefined && <Text numberOfLines={1} style={[layout.count, { color }]}>{counts.format(count)}</Text>}
     </Pressable>)}
   </View>;
 }
 
 const layout = StyleSheet.create({
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  action: { minWidth: 44, minHeight: 44, flexShrink: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
-  first: { justifyContent: 'flex-start' },
+  row: { width: '100%', height: 44, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  action: { flex: 1, minWidth: 44, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 6 },
   last: { justifyContent: 'flex-end' },
   count: { flexShrink: 1, fontSize: 12 },
 });

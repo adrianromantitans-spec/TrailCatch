@@ -95,7 +95,7 @@ export default function Feed() {
             refreshing={refreshing} onRefresh={() => void load(true)} onEndReached={() => void load(false)}
             ListEmptyComponent={error ? undefined : items ? <Notice message={t.empty} /> : <FeedSkeleton />}
             ListFooterComponent={error ? <Notice message={t.loadError} retry={() => void load(true)} /> : undefined}
-            renderItem={({ item }) => <FeedCard item={item} author={currentAuthor}
+            renderItem={({ item }) => <FeedCard item={item} author={currentAuthor} feedSwipe={swipe}
               onLike={() => void react(item.id, (old) => ({ ...old, liked: !old.liked, likes: old.likes + (old.liked ? -1 : 1) }))}
               onSave={() => void react(item.id, (old) => ({ ...old, saved: !old.saved }))}
               onComment={() => router.push({ pathname: '/outing/[id]', params: { id: item.id, comments: '1' } })} />} />}
