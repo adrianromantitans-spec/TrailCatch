@@ -51,7 +51,7 @@ export function FeedPhotos<T>({ photos, photoKey, renderPhoto, feedSwipe, overla
 }
 
 const layout = StyleSheet.create({
-  frame: { width: '100%', aspectRatio: 4 / 3, borderRadius: 16, overflow: 'hidden' },
+  frame: { width: '100%', aspectRatio: 16 / 9, borderRadius: 16, overflow: 'hidden' },
   // The dots sit in the gap between the photo and the actions.
   dots: { position: 'absolute', left: 0, right: 0, bottom: -9, flexDirection: 'row', justifyContent: 'center', gap: 5 },
   dot: { width: 6, height: 6, borderRadius: 3 },
