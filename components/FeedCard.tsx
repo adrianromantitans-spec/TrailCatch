@@ -62,10 +62,10 @@ export function FeedSkeleton() {
 }
 
 export const feedCardLayout = StyleSheet.create({
-  card: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, flexDirection: 'row', gap: 12,
+  card: { paddingHorizontal: 16, paddingVertical: 6, flexDirection: 'row', gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth },
   avatar: { width: 40, height: 40, borderRadius: 20 },
-  body: { flex: 1, minWidth: 0, gap: 8 },
+  body: { flex: 1, minWidth: 0, gap: 12 },
   identity: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8, rowGap: 2 },
   name: { fontWeight: '700', fontSize: 15, flexShrink: 1 },
   meta: { fontSize: 12 },

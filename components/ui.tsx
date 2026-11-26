@@ -17,16 +17,17 @@ export const usePalette = () => light;
 export const side = 20;
 
 // Style callbacks must reach the native Pressable unchanged to keep the pressed and resting styles.
-export function IconButton({ name, label, onPress, color, align, expanded }: {
+export function IconButton({ name, label, onPress, color, align, expanded, size = 44, iconSize = 23 }: {
   name: IconName; label: string; onPress: () => void; color?: string; align?: 'start' | 'end'; expanded?: boolean;
+  size?: number; iconSize?: number;
 }) {
   const p = usePalette();
   return (
     <Pressable cssInterop={false} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ expanded }}
-      onPress={onPress} style={({ pressed }) => [styles.icon, { opacity: pressed ? 0.55 : 1,
+      onPress={onPress} style={({ pressed }) => [styles.icon, { width: size, height: size, opacity: pressed ? 0.55 : 1,
         alignItems: align === 'start' ? 'flex-start' : align === 'end' ? 'flex-end' : 'center',
       }]}>
-      <Ionicons name={name} size={23} color={color ?? p.ink} />
+      <Ionicons name={name} size={iconSize} color={color ?? p.ink} />
     </Pressable>
   );
 }
@@ -100,7 +101,7 @@ export function Avatar({ sample, size = 38 }: { sample?: boolean; size?: number 
 export const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingBottom: 4, paddingHorizontal: side, borderBottomWidth: StyleSheet.hairlineWidth },
   headerText: { flex: 1, fontWeight: '800', fontSize: 23, letterSpacing: -0.6 },
-  icon: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  icon: { justifyContent: 'center', alignItems: 'center' },
   button: { minHeight: 44, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center' },
   primaryButton: { height: 52, borderRadius: 16 },
   dashedButton: { borderStyle: 'dashed', borderRadius: 16, alignSelf: 'stretch' },
