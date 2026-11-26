@@ -63,32 +63,35 @@ export function TabContent({ name, children }: PropsWithChildren<{ name: TabName
 
 type ScrollContext = { y?: number; travel?: number };
 
-export function useHomeTabScroll() {
+export function useHomeTabScroll(headerHeight = 0) {
   const compact = useContext(TargetContext)?.homeCompact;
+  const headerOffset = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler<ScrollContext>({
     onBeginDrag(event, context) {
       context.y = Math.max(0, event.contentOffset.y);
       context.travel = 0;
     },
     onScroll(event, context) {
-      if (!compact) return;
       const bottom = Math.max(0, event.contentSize.height - event.layoutMeasurement.height);
       const y = Math.max(0, Math.min(bottom, event.contentOffset.y));
       const delta = y - (context.y ?? y);
       context.y = y;
       if (y <= 12) {
         context.travel = 0;
-        compact.set(false);
+        compact?.set(false);
+        headerOffset.set(0);
         return;
       }
       if (!delta) return;
+      if (headerHeight) headerOffset.set(Math.min(headerHeight, Math.max(0, headerOffset.get() + delta)));
+      if (!compact) return;
       const previous = context.travel ?? 0;
       context.travel = Math.sign(previous) === Math.sign(delta) ? previous + delta : delta;
       if (!compact.get() && y >= 64 && context.travel >= 22) compact.set(true);
       else if (compact.get() && context.travel <= -18) compact.set(false);
     },
   });
-  return { onScroll, compact };
+  return { onScroll, compact, headerOffset };
 }
 
 type Props = BottomTabBarProps & { onCreate: () => void };

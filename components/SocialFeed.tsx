@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Alert, View } from 'react-native';
 import type { FlatListProps } from 'react-native';
+import type { Gesture } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import type { Point } from '../db/model';
 import { t } from '../i18n';
@@ -13,8 +14,9 @@ import { FeedSkeleton } from './FeedCard';
 import { SocialPostCard } from './SocialPostCard';
 import { Button, Notice, styles } from './ui';
 
-export function SocialFeed({ mode, bottom, onScroll }: {
-  mode: FeedMode; bottom: number; onScroll?: FlatListProps<SocialPost>['onScroll'];
+export function SocialFeed({ mode, bottom, top, onScroll, feedSwipe }: {
+  mode: FeedMode; bottom: number; top: number; onScroll?: FlatListProps<SocialPost>['onScroll'];
+  feedSwipe?: ReturnType<typeof Gesture.Pan>;
 }) {
   const router = useRouter();
   const { session } = useSession();
@@ -86,21 +88,23 @@ export function SocialFeed({ mode, bottom, onScroll }: {
     } finally { mutations.current.delete(lock); }
   }
 
-  if (mode === 'following' && !viewer) return <View style={styles.content}>
+  if (mode === 'following' && !viewer) return <View style={[styles.content, { marginTop: top }]}>
     <Notice message={t.signInRequired} /><Button label={t.signIn} onPress={() => router.push('/account')} />
   </View>;
-  if (mode === 'nearby' && !point) return <View style={styles.content}>
+  if (mode === 'nearby' && !point) return <View style={[styles.content, { marginTop: top }]}>
     {locationError ? <Notice message={locationError} /> : null}
     <Button label={locating ? t.loading : t.myLocation} disabled={locating} onPress={() => void locate()} icon="locate-outline" />
   </View>;
 
-  return !posts && !failed ? <FeedSkeleton /> : <Animated.FlatList onScroll={onScroll} scrollEventThrottle={16} style={styles.screen} data={posts ?? []} keyExtractor={(item) => item.id}
+  return !posts && !failed ? <View style={{ paddingTop: top }}><FeedSkeleton /></View> : <Animated.FlatList onScroll={onScroll}
+    scrollEventThrottle={16} style={styles.screen} data={posts ?? []} keyExtractor={(item) => item.id}
     windowSize={5} initialNumToRender={3} maxToRenderPerBatch={5}
-    contentContainerStyle={{ paddingBottom: bottom }}
+    contentInsetAdjustmentBehavior="never" progressViewOffset={top}
+    contentContainerStyle={{ paddingTop: top, paddingBottom: bottom }}
     refreshing={refreshing} onRefresh={() => void load(true)} onEndReached={() => void load(false)}
     ListEmptyComponent={failed ? undefined : <Notice message={t.noPosts} />}
     ListFooterComponent={failed ? <Notice message={t.loadError} retry={() => void load(!posts?.length)} /> : undefined}
-    renderItem={({ item }) => <SocialPostCard post={item} viewer={viewer}
+    renderItem={({ item }) => <SocialPostCard post={item} viewer={viewer} feedSwipe={feedSwipe}
       onLike={(value) => void mutate('likes', item, value)}
       onSave={() => void mutate('saved', item, !item.saved)}
       onFollow={() => void mutate('follows', item, !item.followed)} />} />;

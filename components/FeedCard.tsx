@@ -1,76 +1,74 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Link } from 'expo-router';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Outing, photoList } from '../db/model';
 import { relativeDate, t } from '../i18n';
 import { photoSource } from '../services/photos';
-import { Avatar, IconButton, side, usePalette } from './ui';
+import type { Profile } from '../services/social';
+import { FeedActions } from './FeedActions';
+import { Avatar, usePalette } from './ui';
 
-export function FeedCard({ item, onLike, onSave, onComment }: {
-  item: Outing; onLike: () => void; onSave: () => void; onComment: () => void;
+type FeedAuthor = Pick<Profile, 'display_name' | 'avatar_url'>;
+
+export function FeedCard({ item, author, onLike, onSave, onComment }: {
+  item: Outing; author?: FeedAuthor; onLike: () => void; onSave: () => void; onComment: () => void;
 }) {
   const p = usePalette();
   const photo = photoList(item)[0];
+  const name = item.sample ? t.sampleAuthor : author?.display_name || t.personal;
   const destination = { pathname: '/outing/[id]' as const, params: { id: item.id } };
-  return (
-    <View style={[styles.card, { borderColor: p.line, backgroundColor: p.surface }]}>
+  return <View style={[feedCardLayout.card, { borderColor: p.line, backgroundColor: p.surface }]}>
+    <Link href={destination} asChild>
+      <Pressable accessibilityLabel={item.title} hitSlop={4}>
+        {!item.sample && author?.avatar_url ? <Image source={author.avatar_url} style={feedCardLayout.avatar} /> :
+          <Avatar sample={item.sample} size={40} />}
+      </Pressable>
+    </Link>
+    <View style={feedCardLayout.body}>
+      <View style={feedCardLayout.identity}>
+        <Text style={[feedCardLayout.name, { color: p.ink }]}>{name}</Text>
+        <Text style={[feedCardLayout.meta, { color: p.muted }]}>{t[item.type]} · {relativeDate(item.date)}</Text>
+      </View>
       <Link href={destination} asChild>
-        <Pressable style={styles.author}>
-          <Avatar sample={item.sample} />
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={{ color: p.ink, fontWeight: '700' }}>{item.sample ? t.sampleAuthor : t.personal}</Text>
-            <Text style={{ color: p.muted, fontSize: 12 }}>{t[item.type]}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={p.muted} />
+        <Pressable>
+          <Text style={[feedCardLayout.copy, { color: p.ink }]}>
+            <Text style={feedCardLayout.name}>{item.title}</Text>{item.notes ? `\n${item.notes}` : ''}
+          </Text>
         </Pressable>
       </Link>
       {photo && <Link href={destination} asChild>
         <Pressable accessibilityLabel={item.title}>
           <Image source={photoSource(photo)} contentFit="cover" transition={160}
-            accessibilityLabel={item.title} style={[styles.photo, { backgroundColor: p.soft }]} />
+            accessibilityLabel={item.title} style={[feedCardLayout.photo, { backgroundColor: p.soft }]} />
         </Pressable>
       </Link>}
-      <View style={styles.actions}>
-        <IconButton name={item.liked ? 'heart' : 'heart-outline'} label={item.liked ? t.unlike : t.like}
-          color={item.liked ? p.danger : undefined} onPress={onLike} />
-        <IconButton name="chatbubble-outline" label={t.comment} onPress={onComment} />
-        <View style={{ flex: 1 }} />
-        <IconButton name={item.saved ? 'bookmark' : 'bookmark-outline'} label={item.saved ? t.unbookmark : t.bookmark} onPress={onSave} />
-        <IconButton name="share-outline" label={t.share} onPress={() => {
-          void Share.share({ message: [item.title, item.notes].filter(Boolean).join('\n') }).catch(() => {});
-        }} />
-      </View>
-      <View style={styles.caption}>
-        <Text style={{ color: p.ink, fontWeight: '700' }}>{t.likes(item.likes)}</Text>
-        <Text style={{ color: p.ink, lineHeight: 20 }}>
-          <Text style={{ fontWeight: '700' }}>{item.title}</Text>{item.notes ? `  ${item.notes}` : ''}
-        </Text>
-        <Text style={{ color: p.muted, fontSize: 12 }}>{relativeDate(item.date)}</Text>
-      </View>
+      <FeedActions liked={item.liked} saved={item.saved} likes={item.likes} comments={item.comments.length}
+        onLike={onLike} onSave={onSave} onComment={onComment}
+        onShare={() => { void Share.share({ message: [item.title, item.notes].filter(Boolean).join('\n') }).catch(() => {}); }} />
     </View>
-  );
+  </View>;
 }
 
 export function FeedSkeleton() {
   const p = usePalette();
-  return <View accessibilityLabel={t.loading} style={{ backgroundColor: p.surface }}>
-    <View style={styles.author}>
-      <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: p.soft }} />
-      <View style={{ gap: 8 }}>
-        <View style={{ width: 110, height: 11, borderRadius: 5, backgroundColor: p.soft }} />
-        <View style={{ width: 62, height: 9, borderRadius: 5, backgroundColor: p.soft }} />
-      </View>
+  return <View accessibilityLabel={t.loading} style={[feedCardLayout.card, { borderColor: p.line, backgroundColor: p.surface }]}>
+    <View style={[feedCardLayout.avatar, { backgroundColor: p.soft }]} />
+    <View style={feedCardLayout.body}>
+      <View style={{ width: 110, height: 11, borderRadius: 5, backgroundColor: p.soft }} />
+      <View style={{ width: 62, height: 9, borderRadius: 4, backgroundColor: p.soft }} />
+      <View style={[feedCardLayout.photo, { backgroundColor: p.soft }]} />
     </View>
-    <View style={[styles.photo, { backgroundColor: p.soft }]} />
-    <View style={{ margin: side, height: 12, width: 145, borderRadius: 6, backgroundColor: p.soft }} />
   </View>;
 }
 
-const styles = StyleSheet.create({
-  card: { borderBottomWidth: StyleSheet.hairlineWidth, marginBottom: 8 },
-  author: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: side, paddingVertical: 12 },
-  photo: { width: '100%', aspectRatio: 4 / 5 },
-  actions: { flexDirection: 'row', columnGap: 12, paddingHorizontal: side - 12, paddingTop: 4 },
-  caption: { paddingHorizontal: side, paddingBottom: 16, gap: 4 },
+export const feedCardLayout = StyleSheet.create({
+  card: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, flexDirection: 'row', gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth },
+  avatar: { width: 40, height: 40, borderRadius: 20 },
+  body: { flex: 1, minWidth: 0, gap: 8 },
+  identity: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8, rowGap: 2 },
+  name: { fontWeight: '700', fontSize: 15, flexShrink: 1 },
+  meta: { fontSize: 12 },
+  copy: { fontSize: 15, lineHeight: 21 },
+  photo: { width: '100%', aspectRatio: 4 / 5, borderRadius: 16 },
 });
