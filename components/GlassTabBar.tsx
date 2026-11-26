@@ -2,14 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurTargetView, BlurView } from 'expo-blur';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
+import { usePathname, useRouter } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/tabs';
+import { SymbolView } from 'expo-symbols';
 import { ComponentRef, createContext, createRef, PropsWithChildren, useContext, useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import type { ViewStyle } from 'react-native';
-import Animated, { Easing, interpolateColor, ReduceMotion, useAnimatedScrollHandler, useAnimatedStyle, useDerivedValue,
+import Animated, { Easing, FadeIn, interpolateColor, ReduceMotion, useAnimatedReaction, useAnimatedScrollHandler, useAnimatedStyle, useDerivedValue,
   useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import type { AnimatedStyle, SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { scheduleOnRN } from 'react-native-worklets';
 import { t } from '../i18n';
 import { brandGreen, IconName, onBrand, side, usePalette } from './ui';
 
@@ -44,14 +47,37 @@ const icons: Record<TabName, IconName> = {
   index: 'home-outline', map: 'map-outline', explore: 'search-outline', profile: 'person-outline',
 };
 type Targets = Record<TabName, ReturnType<typeof createRef<ComponentRef<typeof View>>>>;
-const TargetContext = createContext<{ targets: Targets; homeCompact?: SharedValue<boolean>; nativeBar: boolean } | null>(null);
+const TargetContext = createContext<{
+  targets: Targets; homeCompact: SharedValue<boolean>; nativeBar: boolean;
+  nativeHomeCompact: boolean; deviceBottom: number; onCreate?: () => void;
+} | null>(null);
 
-export function GlassTargets({ children, nativeBar = false }: PropsWithChildren<{ nativeBar?: boolean }>) {
+export function GlassTargets({ children, nativeBar = false, onCreate }: PropsWithChildren<{ nativeBar?: boolean; onCreate?: () => void }>) {
   const [targets] = useState<Targets>(() => ({
     index: createRef<ComponentRef<typeof View>>(), map: createRef<ComponentRef<typeof View>>(), explore: createRef<ComponentRef<typeof View>>(), profile: createRef<ComponentRef<typeof View>>(),
   }));
   const homeCompact = useSharedValue(false);
-  return <TargetContext.Provider value={{ targets, homeCompact: nativeBar ? undefined : homeCompact, nativeBar }}>{children}</TargetContext.Provider>;
+  const [nativeHomeCompact, setNativeHomeCompact] = useState(false);
+  const { bottom: deviceBottom } = useSafeAreaInsets();
+  useAnimatedReaction(
+    () => nativeBar && homeCompact.get(),
+    (compact, previous) => { if (compact !== previous) scheduleOnRN(setNativeHomeCompact, compact); },
+  );
+  return <TargetContext.Provider value={{ targets, homeCompact, nativeBar, nativeHomeCompact, deviceBottom, onCreate }}>
+    {children}
+  </TargetContext.Provider>;
+}
+
+export function useNativeHomeCompact() {
+  const compact = useContext(TargetContext)?.nativeHomeCompact ?? false;
+  return usePathname() === '/' && compact;
+}
+
+export function useHomeTabClearance() {
+  const fallback = useTabClearance();
+  const context = useContext(TargetContext);
+  // Keep the list's bottom padding stable when UIKit hides the full-size bar.
+  return context?.nativeBar ? barBottom(context.deviceBottom) + barHeight + 16 : fallback;
 }
 
 export function TabContent({ name, children }: PropsWithChildren<{ name: TabName }>) {
@@ -66,7 +92,6 @@ type ScrollContext = { y?: number; travel?: number };
 export function useHomeTabScroll(headerHeight = 0) {
   const context = useContext(TargetContext);
   const compact = context?.homeCompact;
-  const nativeBar = context?.nativeBar ?? false;
   const headerOffset = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler<ScrollContext>({
     onBeginDrag(event, context) {
@@ -94,7 +119,46 @@ export function useHomeTabScroll(headerHeight = 0) {
       else if (compact.get() && context.travel <= -10) compact.set(false);
     },
   });
-  return { onScroll, compact, headerOffset, nativeBar };
+  return { onScroll, compact, headerOffset };
+}
+
+const nativeCompactHeight = 46;
+const nativeCompactEnter = FadeIn.duration(160).easing(Easing.out(Easing.cubic)).reduceMotion(ReduceMotion.System);
+const compactTabs = [
+  { symbol: 'house.fill', label: t.home, action: 'home' },
+  { symbol: 'map', label: t.map, action: '/map' },
+  { symbol: 'plus.circle.fill', label: t.createMenu, action: 'create' },
+  { symbol: 'magnifyingglass', label: t.search, action: '/explore' },
+  { symbol: 'person.crop.circle', label: t.profile, action: '/profile' },
+] as const;
+
+export function CompactHomeTabBar({ onHomePress }: { onHomePress: () => void }) {
+  const router = useRouter();
+  const visible = useNativeHomeCompact();
+  const p = usePalette();
+  const { left, right } = useSafeAreaInsets();
+  const context = useContext(TargetContext);
+  if (!context || !visible) return null;
+  return <Animated.View pointerEvents="box-none" entering={nativeCompactEnter}
+    style={[styles.outer, styles.nativeOverlay, { bottom: barBottom(context.deviceBottom), left: left + side, right: right + side }]}>
+    <GlassView glassEffectStyle="regular" colorScheme="light" isInteractive style={styles.nativeSurface}>
+      {compactTabs.map(({ symbol, label, action }) => (
+        <Pressable key={action} accessibilityRole={action === 'create' ? 'button' : 'tab'} accessibilityLabel={label}
+          accessibilityState={action === 'create' ? undefined : { selected: action === 'home' }}
+          style={styles.slot} onPress={() => {
+            if (action === 'home') onHomePress();
+            else if (action === 'create') context.onCreate?.();
+            else {
+              void Haptics.selectionAsync().catch(() => {});
+              router.navigate(action);
+            }
+          }}>
+          <SymbolView name={symbol} tintColor={action === 'home' || action === 'create' ? p.accent : p.muted}
+            size={action === 'create' ? 26 : 21} />
+        </Pressable>
+      ))}
+    </GlassView>
+  </Animated.View>;
 }
 
 type Props = BottomTabBarProps & { onCreate: () => void };
@@ -253,6 +317,8 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   outer: { position: 'absolute' },
+  nativeOverlay: { zIndex: 3 },
+  nativeSurface: { height: nativeCompactHeight, borderRadius: nativeCompactHeight / 2, flexDirection: 'row' },
   shadow: { shadowColor: '#14251D', elevation: 5, shadowOpacity: 0.15, shadowRadius: 12,
     shadowOffset: { width: 0, height: 5 } },
   pill: { flex: 1, borderWidth: 1, overflow: 'hidden' },

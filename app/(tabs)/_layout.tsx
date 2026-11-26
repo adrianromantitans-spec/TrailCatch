@@ -2,7 +2,7 @@ import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-ef
 import { Redirect, Tabs, useRouter } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { ActivityIndicator, Alert, Platform, View } from 'react-native';
-import { GlassTabBar, GlassTargets } from '../../components/GlassTabBar';
+import { GlassTabBar, GlassTargets, useNativeHomeCompact } from '../../components/GlassTabBar';
 import { usePalette } from '../../components/ui';
 import { t } from '../../i18n';
 import { backend, useSession } from '../../services/backend';
@@ -27,31 +27,8 @@ export default function TabsLayout() {
   const useNativeBar = Platform.OS === 'ios' && isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
 
   if (useNativeBar) return (
-    <GlassTargets nativeBar>
-      <NativeTabs tintColor={p.accent} iconColor={{ default: p.muted, selected: p.accent }} minimizeBehavior="onScrollDown">
-        <NativeTabs.Trigger name="index">
-          <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} />
-          <NativeTabs.Trigger.Label>{t.home}</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="map" disableAutomaticContentInsets>
-          <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} />
-          <NativeTabs.Trigger.Label>{t.map}</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="create-action" disabled disableAutomaticContentInsets listeners={{
-          tabPress: ({ data }) => { if (data.isPrevented) openCreate(); },
-        }}>
-          <NativeTabs.Trigger.Icon sf="plus.circle.fill" />
-          <NativeTabs.Trigger.Label>{t.createMenu}</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="explore" disableAutomaticContentInsets>
-          <NativeTabs.Trigger.Icon sf="magnifyingglass" />
-          <NativeTabs.Trigger.Label>{t.search}</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="profile" disableAutomaticContentInsets>
-          <NativeTabs.Trigger.Icon sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }} />
-          <NativeTabs.Trigger.Label>{t.profile}</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
-      </NativeTabs>
+    <GlassTargets nativeBar onCreate={openCreate}>
+      <NativeTabLayout onCreate={openCreate} />
     </GlassTargets>
   );
 
@@ -66,5 +43,38 @@ export default function TabsLayout() {
         <Tabs.Screen name="profile" options={{ title: t.profile }} />
       </Tabs>
     </GlassTargets>
+  );
+}
+
+function NativeTabLayout({ onCreate }: { onCreate: () => void }) {
+  const p = usePalette();
+  const compact = useNativeHomeCompact();
+
+  return (
+    <NativeTabs tintColor={p.accent} iconColor={{ default: p.muted, selected: p.accent }}
+      hidden={compact} disableHiddenAnimation minimizeBehavior="never">
+      <NativeTabs.Trigger name="index" disableAutomaticContentInsets>
+        <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} />
+        <NativeTabs.Trigger.Label>{t.home}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="map" disableAutomaticContentInsets>
+        <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} />
+        <NativeTabs.Trigger.Label>{t.map}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="create-action" disabled disableAutomaticContentInsets listeners={{
+        tabPress: ({ data }) => { if (data.isPrevented) onCreate(); },
+      }}>
+        <NativeTabs.Trigger.Icon sf="plus.circle.fill" />
+        <NativeTabs.Trigger.Label>{t.createMenu}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="explore" disableAutomaticContentInsets>
+        <NativeTabs.Trigger.Icon sf="magnifyingglass" />
+        <NativeTabs.Trigger.Label>{t.search}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="profile" disableAutomaticContentInsets>
+        <NativeTabs.Trigger.Icon sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }} />
+        <NativeTabs.Trigger.Label>{t.profile}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+    </NativeTabs>
   );
 }
