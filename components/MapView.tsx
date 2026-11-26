@@ -12,10 +12,10 @@ type MapLine = { id: string; coordinates: Point[]; color: string; selected: bool
 const layers = ['standard', 'satellite', 'terrain'] as const;
 export const initialMapRegion = { latitude: 46.70, longitude: 23.42, latitudeDelta: 0.45, longitudeDelta: 0.45 };
 
-export function MapView({ point, movedTo, outings = [], onSelect, onPick, height, bottomOffset = 8, emptyMessage,
+export function MapView({ point, movedTo, outings = [], onSelect, onPick, onMapPress, height, bottomOffset = 8, emptyMessage,
   pins = [], lines = [], onViewport, externalAttribution, initialRegion = initialMapRegion }: {
   point?: Point; movedTo?: Point & Partial<MapRegion>; outings?: Outing[]; onSelect?: (id: string) => void;
-  onPick?: (point: Point) => void; height?: number; bottomOffset?: number; emptyMessage?: string; pins?: MapPin[];
+  onPick?: (point: Point) => void; onMapPress?: (point: Point) => void; height?: number; bottomOffset?: number; emptyMessage?: string; pins?: MapPin[];
   lines?: MapLine[]; onViewport?: (region: MapRegion) => void; externalAttribution?: boolean; initialRegion?: MapRegion;
 }) {
   const p = usePalette();
@@ -27,6 +27,7 @@ export function MapView({ point, movedTo, outings = [], onSelect, onPick, height
   const center = point ?? destination;
   const latitudeDelta = movedTo?.latitudeDelta ?? 0.075;
   const longitudeDelta = movedTo?.longitudeDelta ?? 0.075;
+  const onPress = onPick ?? onMapPress;
   useEffect(() => {
     if (latitude != null && longitude != null) {
       map.current?.animateToRegion({ latitude, longitude, latitudeDelta, longitudeDelta });
@@ -37,7 +38,9 @@ export function MapView({ point, movedTo, outings = [], onSelect, onPick, height
     <View style={[styles.frame, { backgroundColor: p.soft }, height ? { height, borderRadius: 16 } : { flex: 1 }]}>
       <NativeMap ref={map} style={StyleSheet.absoluteFill} mapType={layer}
         initialRegion={center ? { ...center, latitudeDelta: 0.075, longitudeDelta: 0.075 } : initialRegion}
-        onPress={onPick ? ({ nativeEvent }) => onPick(nativeEvent.coordinate) : undefined}
+        onPress={onPress ? ({ nativeEvent }) => {
+          if (nativeEvent.action !== 'marker-press') onPress(nativeEvent.coordinate);
+        } : undefined}
         onRegionChangeComplete={onViewport}
         mapPadding={height ? undefined : { top: 60, bottom: bottomOffset, left: 0, right: 0 }}
         toolbarEnabled={false} moveOnMarkerPress={false}>

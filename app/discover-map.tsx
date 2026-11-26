@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { initialMapRegion, MapView } from '../components/MapView';
 import type { MapRegion } from '../components/MapView';
@@ -9,8 +9,8 @@ import { Button, Header, IconButton, side, styles, usePalette } from '../compone
 import type { Point } from '../db/model';
 import { t } from '../i18n';
 import { europeanFishingAreas } from '../services/europeanFishingAreas';
-import { discoverMap, discoveryBounds, focusDiscoveryRegion } from '../services/mapDiscovery';
-import type { DiscoveryFeature, DiscoveryKind } from '../services/mapDiscovery';
+import { discoverMap, discoveryBounds, focusDiscoveryRegion, trailNearPoint } from '../services/mapDiscovery';
+import type { Bounds, DiscoveryFeature, DiscoveryKind, TrailCursor } from '../services/mapDiscovery';
 
 const initialRegion = { ...initialMapRegion, latitudeDelta: 0.075, longitudeDelta: 0.075 };
 const europeRegion = { latitude: 52, longitude: 10, latitudeDelta: 42, longitudeDelta: 66 };
@@ -19,6 +19,7 @@ export default function DiscoverMap() {
   const router = useRouter();
   const p = usePalette();
   const { bottom } = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const [kind, setKind] = useState<DiscoveryKind>('trails');
   const [region, setRegion] = useState(initialRegion);
   const [destination, setDestination] = useState<Point & Partial<MapRegion>>();
@@ -26,6 +27,7 @@ export default function DiscoverMap() {
   const [selected, setSelected] = useState<DiscoveryFeature>();
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'empty' | 'error'>('idle');
   const [locating, setLocating] = useState(false);
+  const [continuation, setContinuation] = useState<{ bounds: Bounds; cursor: TrailCursor }>();
   const request = useRef<AbortController>(null);
   const mounted = useRef(false);
   const searchRegion = focusDiscoveryRegion(region);
@@ -36,6 +38,11 @@ export default function DiscoverMap() {
     Math.abs(point.longitude - region.longitude) <= region.longitudeDelta / 2) : [];
   const features = [...catalog, ...items];
   const guide = selected?.guide;
+  const nextPage = continuation && kind === 'trails' && searchRegion === region &&
+    region.latitude >= continuation.bounds[0] && region.latitude <= continuation.bounds[2] &&
+    region.longitude >= continuation.bounds[1] && region.longitude <= continuation.bounds[3] ? continuation : undefined;
+  const markerFeatures = kind === 'trails' ? features.filter((feature) =>
+    (feature.name && feature.id.startsWith('relation/')) || feature.id === selected?.id) : features;
   const featureName = (feature: DiscoveryFeature) => feature.name || (kind === 'trails' ? t.unnamedTrail : t.fishingPlace);
 
   useEffect(() => {
@@ -49,23 +56,30 @@ export default function DiscoverMap() {
     setKind(next);
     setSelected(undefined);
     setItems([]);
+    setContinuation(undefined);
     setStatus('idle');
   }
 
-  async function search() {
-    if (!bounds) return;
-    if (searchRegion !== region) setDestination(searchRegion);
+  async function search(append = false) {
+    const pageBounds = append ? nextPage?.bounds : bounds;
+    if (!pageBounds) return;
+    if (!append && searchRegion !== region) setDestination(searchRegion);
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
     setSelected(undefined);
-    setItems([]);
+    if (!append) { setItems([]); setContinuation(undefined); }
     setStatus('loading');
     try {
-      const results = await discoverMap(bounds, kind, controller.signal);
+      const page = await discoverMap(pageBounds, kind, controller.signal, append ? nextPage?.cursor : undefined);
       if (controller.signal.aborted) return;
-      setItems(results);
-      setStatus(results.length ? 'ready' : 'empty');
+      setItems((previous) => {
+        if (!append) return page.items;
+        const existing = new Set(previous.map(({ id }) => id));
+        return [...previous, ...page.items.filter(({ id }) => !existing.has(id))];
+      });
+      setContinuation(page.next ? { bounds: pageBounds, cursor: page.next } : undefined);
+      setStatus(append || page.items.length ? 'ready' : 'empty');
     } catch {
       if (!controller.signal.aborted) setStatus('error');
     }
@@ -97,6 +111,7 @@ export default function DiscoverMap() {
   function showEurope() {
     request.current?.abort();
     setItems([]);
+    setContinuation(undefined);
     setSelected(undefined);
     setStatus('idle');
     setDestination({ ...europeRegion });
@@ -105,7 +120,7 @@ export default function DiscoverMap() {
   const summary = status === 'loading' ? t.loading : status === 'error' ? t.discoverMapError
     : catalog.length && status !== 'ready' ? t.europeFishingHint
     : searchRegion !== region ? t.zoomDiscovery : status === 'empty' ? (kind === 'trails' ? t.noMappedTrails : t.noMappedFishing)
-      : status === 'ready' ? t.selectMapFeature : '';
+      : status === 'ready' ? (kind === 'trails' ? t.selectTrailLine : t.selectMapFeature) : '';
 
   return <View style={{ flex: 1, backgroundColor: p.bg }}>
     <Header title={t.discoverMap} back={() => router.canGoBack() ? router.back() : router.replace('/map')} />
@@ -117,11 +132,14 @@ export default function DiscoverMap() {
       {kind === 'fishing' && <Button label={t.europeFishing} icon="globe-outline" stretch singleLine onPress={showEurope} />}
     </View>
     <MapView initialRegion={initialRegion} movedTo={destination} onViewport={setRegion} externalAttribution
-      pins={features.map((feature) => ({ id: feature.id, ...feature.point, title: featureName(feature),
+      pins={markerFeatures.map((feature) => ({ id: feature.id, ...(selected?.id === feature.id ? selected.point : feature.point), title: featureName(feature),
         color: feature.guide ? '#255A46' : pinColor }))}
       lines={items.flatMap((feature) => feature.lines.map((coordinates, index) => ({
         id: `${feature.id}-${index}`, coordinates, color: '#258457', selected: selected?.id === feature.id,
-      })))} onSelect={(id) => setSelected(features.find((feature) => feature.id === id))} />
+      })))} onSelect={(id) => setSelected(features.find((feature) => feature.id === id))}
+      onMapPress={kind === 'trails' && items.length ? (point) => {
+        setSelected(trailNearPoint(point, items, Math.min(0.003, 18 * region.longitudeDelta / Math.max(1, width))));
+      } : undefined} />
     <View style={[layout.panel, { paddingBottom: Math.max(bottom, 12), backgroundColor: p.surface, borderColor: p.line }]}>
       {selected ? <>
         <View style={styles.columns}>
@@ -147,6 +165,7 @@ export default function DiscoverMap() {
           <Button label={t.searchMapArea} stretch icon="search-outline" disabled={!bounds || status === 'loading'}
             onPress={() => void search()} />
         </View>
+        {nextPage && <Button label={t.loadMoreTrails} icon="add-outline" disabled={status === 'loading'} onPress={() => void search(true)} />}
       </>}
     </View>
   </View>;

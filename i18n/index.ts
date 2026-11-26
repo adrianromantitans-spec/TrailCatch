@@ -49,6 +49,7 @@ const es = {
   noMappedTrails: 'No hay senderos registrados en esta zona del mapa.',
   noMappedFishing: 'No hay lugares señalados para pescar en esta zona del mapa.',
   selectMapFeature: 'Toca un marcador para ver cómo llegar.', closeMapFeature: 'Cerrar ficha del lugar',
+  selectTrailLine: 'Toca un trazado verde para ver cómo llegar.', loadMoreTrails: 'Cargar más senderos',
   trailAccessWarning: 'El marcador señala un punto del sendero. Comprueba el acceso y el estado del camino antes de salir.',
   fishingMapWarning: 'Comprueba el acceso, las vedas y la licencia de pesca antes de ir.',
   fishingMapPermit: 'El mapa indica que hace falta un permiso. Comprueba los requisitos locales antes de ir.',
@@ -142,6 +143,7 @@ const es = {
 const translations: Record<Locale, Partial<typeof es>> = {
   es,
   en: {
+    selectTrailLine: 'Tap a green trail line for directions.', loadMoreTrails: 'Load more trails',
     europeFishing: 'Europe', europeFishingHint: 'Tap a green marker for the area and its source.', fishingOfficialInfo: 'Permits and rules',
     fishingGuideWarning: 'Check the source for permitted waters, access points and current rules before travelling.',
     openCommentCount: (count: number) => count === 1 ? 'View comment' : `View all ${count} comments`,
@@ -184,6 +186,7 @@ const translations: Record<Locale, Partial<typeof es>> = {
     mapLocationDenied: 'Allow location access to centre the map near you.',
   },
   ro: {
+    selectTrailLine: 'Atinge un traseu verde pentru indicații.', loadMoreTrails: 'Încarcă mai multe trasee',
     europeFishing: 'Europa', europeFishingHint: 'Atinge un marcaj verde pentru detalii și sursă.', fishingOfficialInfo: 'Permise și reguli',
     fishingGuideWarning: 'Verifică în sursă zonele permise, căile de acces și permisele înainte de plecare.',
     openCommentCount: (count: number) => count === 1 ? 'Vezi comentariul' : `Vezi comentariile (${count})`,

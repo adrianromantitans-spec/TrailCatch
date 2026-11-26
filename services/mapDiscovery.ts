@@ -11,7 +11,9 @@ export type DiscoveryFeature = {
   guide?: { country: string; reference: string; authority: string; url: string };
 };
 
-type Bounds = [south: number, west: number, north: number, east: number];
+export type Bounds = [south: number, west: number, north: number, east: number];
+export type TrailCursor = { route: number | null; way: number | null };
+type DiscoveryPage = { items: DiscoveryFeature[]; next?: TrailCursor };
 type DiscoveryRegion = Point & { latitudeDelta: number; longitudeDelta: number };
 type Coordinate = { lat: number; lon: number };
 type Geometry = (Coordinate | null)[];
@@ -23,7 +25,7 @@ type Element = {
 type ResponseData = { elements?: Element[]; remark?: string };
 
 const globalEndpoints = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
-const cache = new Map<string, { items: DiscoveryFeature[]; expires: number }>();
+const cache = new Map<string, { page: DiscoveryPage; expires: number }>();
 const maxSearchDelta = 0.18;
 
 export function focusDiscoveryRegion(region: DiscoveryRegion): DiscoveryRegion {
@@ -45,8 +47,34 @@ export function discoveryBounds({ latitude, longitude, latitudeDelta, longitudeD
   if (south < north && west < east) return [south, west, north, east];
 }
 
+export function trailNearPoint(point: Point, trails: DiscoveryFeature[], longitudeTolerance: number) {
+  const longitudeScale = Math.cos(point.latitude * Math.PI / 180);
+  let nearest: DiscoveryFeature | undefined;
+  let best = (longitudeTolerance * longitudeScale) ** 2;
+  for (const trail of trails) for (const line of trail.lines) for (let index = 1; index < line.length; index++) {
+    const start = line[index - 1];
+    const end = line[index];
+    const x = (start.longitude - point.longitude) * longitudeScale;
+    const y = start.latitude - point.latitude;
+    const dx = (end.longitude - start.longitude) * longitudeScale;
+    const dy = end.latitude - start.latitude;
+    const length = dx * dx + dy * dy;
+    const progress = length ? Math.min(1, Math.max(0, -(x * dx + y * dy) / length)) : 0;
+    const distance = (x + progress * dx) ** 2 + (y + progress * dy) ** 2;
+    if (distance < best) {
+      best = distance;
+      nearest = { ...trail, point: { latitude: start.latitude + progress * (end.latitude - start.latitude),
+        longitude: start.longitude + progress * (end.longitude - start.longitude) } };
+    }
+  }
+  return nearest;
+}
+
 const restricted = /^(no|private|customers|destination|delivery|agricultural|forestry)$/;
-const walkableHighway = /^(path|footway|track|bridleway)$/;
+const walkableHighway = /^(path|footway|track|bridleway|pedestrian|steps)$/;
+const designatedFoot = /^(yes|designated|permissive|official)$/;
+const routeLimit = 16;
+const wayLimit = 160;
 const explicitFishing = /^(yes|designated|permissive|permit)$/;
 
 function toPoint(coordinate?: Partial<Coordinate> | null): Point | undefined {
@@ -88,7 +116,8 @@ function parseFeature(element: Element, bounds: Bounds, kind: DiscoveryKind): Di
     const geometry = element.type === 'relation' && ['hiking', 'foot'].includes(tags.route)
       ? (element.members ?? []).flatMap((member) => member.type === 'way' &&
         ['', 'forward', 'backward'].includes(member.role ?? '') && member.geometry ? [member.geometry] : [])
-      : element.type === 'way' && tags.name && walkableHighway.test(tags.highway) && element.geometry
+      : element.type === 'way' && element.geometry && (walkableHighway.test(tags.highway) ||
+        (tags.highway === 'cycleway' && designatedFoot.test(tags.foot))) && !['sidewalk', 'crossing'].includes(tags.footway)
         ? [element.geometry] : [];
     lines = geometry.flatMap(segments);
     const [south, west, north, east] = bounds;
@@ -102,22 +131,27 @@ function parseFeature(element: Element, bounds: Bounds, kind: DiscoveryKind): Di
     requiresPermit: [tags.fishing, tags.access, tags['access:fishing']].includes('permit') };
 }
 
-export async function discoverMap(bounds: Bounds, kind: DiscoveryKind, signal: AbortSignal) {
+export async function discoverMap(bounds: Bounds, kind: DiscoveryKind, signal: AbortSignal,
+  cursor: TrailCursor = { route: 0, way: 0 }): Promise<DiscoveryPage> {
   if (signal.aborted) throw new Error('Discovery cancelled');
   const bbox = bounds.map((coordinate) => coordinate.toFixed(5)).join(',');
-  const key = `${kind}:${bbox}`;
+  const key = `${kind}:${bbox}:${cursor.route}:${cursor.way}`;
   const cached = cache.get(key);
-  if (cached && cached.expires > Date.now()) return cached.items;
-  const access = '["access"!~"^(no|private|customers|destination|delivery|agricultural|forestry)$"]';
+  if (cached && cached.expires > Date.now()) return cached.page;
+  const access = `["access"!~"${restricted.source}"]["foot"!~"${restricted.source}"]`;
+  const byId = (after: number) => `(if:id()>${after})`;
   const selection = kind === 'trails'
-    ? `relation["route"~"^(hiking|foot)$"]${access}(${bbox});out body geom 24(${bbox});
-       way["highway"~"^(path|footway|track|bridleway)$"]["name"]${access}(${bbox});out body geom 56(${bbox});`
+    ? [cursor.route === null ? '' : `relation["route"~"^(hiking|foot)$"]${access}(${bbox})${byId(cursor.route)};
+        out body geom ${routeLimit + 1}(${bbox});`,
+      cursor.way === null ? '' : `(way["highway"~"${walkableHighway.source}"]["footway"!~"^(sidewalk|crossing)$"]${access}(${bbox})${byId(cursor.way)};
+        way["highway"="cycleway"]["foot"~"${designatedFoot.source}"]${access}(${bbox})${byId(cursor.way)};);
+        out body geom ${wayLimit + 1}(${bbox});`].join(' ')
     : `(nwr["leisure"="fishing"]${access}(${bbox});nwr["sport"="fishing"]${access}(${bbox});
        nwr["fishing"~"${explicitFishing.source}"]${access}(${bbox}););out body center 80;`;
   const query = `[out:json][timeout:8];${selection}`;
   const [south, west, north, east] = bounds;
   // The Geofabrik Europe extract covers the app's default region and most of Europe.
-  const endpoints = south >= 36 && west >= -12 && north <= 70 && east <= 31
+  const endpoints = south >= 35 && west >= -25 && north <= 72 && east <= 45
     ? ['https://ovp.dresel.systems/api/interpreter', ...globalEndpoints] : globalEndpoints;
   const params = new URLSearchParams({ data: query });
   for (const endpoint of endpoints) {
@@ -130,13 +164,20 @@ export async function discoverMap(bounds: Bounds, kind: DiscoveryKind, signal: A
       if (!response.ok) continue;
       const data = await response.json() as ResponseData;
       if (!Array.isArray(data.elements) || data.remark) continue;
-      const items = data.elements.flatMap((element) => {
+      const routes = data.elements.filter(({ type }) => type === 'relation');
+      const ways = data.elements.filter(({ type }) => type === 'way');
+      const elements = kind === 'trails' ? [...routes.slice(0, routeLimit), ...ways.slice(0, wayLimit)] : data.elements;
+      const page: DiscoveryPage = { items: elements.flatMap((element) => {
         const feature = parseFeature(element, bounds, kind);
         return feature ? [feature] : [];
-      });
+      }) };
+      if (kind === 'trails' && (routes.length > routeLimit || ways.length > wayLimit)) {
+        page.next = { route: routes.length > routeLimit ? routes[routeLimit - 1].id : null,
+          way: ways.length > wayLimit ? ways[wayLimit - 1].id : null };
+      }
       if (cache.size >= 20) cache.delete(cache.keys().next().value!);
-      cache.set(key, { items, expires: Date.now() + 5 * 60 * 1000 });
-      return items;
+      cache.set(key, { page, expires: Date.now() + 5 * 60 * 1000 });
+      return page;
     } catch { if (signal.aborted) break; }
     finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
   }
