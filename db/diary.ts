@@ -95,16 +95,17 @@ export async function allOutings(db: SQLiteDatabase) {
   return rows.map(({ data }) => JSON.parse(data) as Outing);
 }
 
-export async function pageOutings(db: SQLiteDatabase, page: number, filter: Filter = {}) {
+export async function pageOutings(db: SQLiteDatabase, page: number, filter: Filter = {}, pageCount = 1) {
+  const limit = PAGE_SIZE * pageCount;
   const rows = await db.getAllAsync<Row>(
     `SELECT data FROM outings WHERE instr(search_text, ?) > 0
      AND (? IS NULL OR type = ?)
      AND (? = 0 OR json_extract(data, '$.saved') = 1)
      ORDER BY date DESC, id DESC LIMIT ? OFFSET ?`,
     normalize(filter.query?.trim() ?? ''), filter.type ?? null, filter.type ?? null, Number(!!filter.saved),
-    PAGE_SIZE + 1, page * PAGE_SIZE,
+    limit + 1, page * PAGE_SIZE,
   );
-  return { items: rows.slice(0, PAGE_SIZE).map(({ data }) => JSON.parse(data) as Outing), more: rows.length > PAGE_SIZE };
+  return { items: rows.slice(0, limit).map(({ data }) => JSON.parse(data) as Outing), more: rows.length > limit };
 }
 
 export async function getOuting(db: SQLiteDatabase, id: string) {

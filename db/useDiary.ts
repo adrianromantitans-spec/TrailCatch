@@ -20,25 +20,27 @@ export function useDiary() {
   return { items, error, load };
 }
 
-export function useOutingPages(filter: Parameters<typeof pageOutings>[2] = {}) {
+export function useOutingPages(filter: Parameters<typeof pageOutings>[2] = {}, { preserveOnFocus = false } = {}) {
   const db = useSQLiteContext();
   const { query, type, saved } = filter;
   const filterKey = JSON.stringify([query, type, saved]);
   const [result, setResult] = useState<{ key: string; items?: Outing[]; error: boolean }>();
   const [refreshing, setRefreshing] = useState(false);
-  const state = useRef({ version: 0, next: 0, more: true, busy: false });
+  const state = useRef({ version: 0, next: 0, more: true, busy: false, key: '' });
 
-  const load = useCallback(async (reset: boolean) => {
+  const load = useCallback(async (reset: boolean, background = false) => {
     const current = state.current;
     if (!reset && (current.busy || !current.more || current.next === 0)) return;
     const version = reset ? ++current.version : current.version;
     const page = reset ? 0 : current.next;
+    const pageCount = background && current.key === filterKey ? Math.max(1, current.next) : 1;
     current.busy = true;
-    if (reset) setRefreshing(true);
+    if (reset) setRefreshing(!background);
     try {
-      const result = await pageOutings(db, page, { query, type, saved });
+      const result = await pageOutings(db, page, { query, type, saved }, pageCount);
       if (current.version !== version) return;
-      current.next = page + 1;
+      current.key = filterKey;
+      current.next = page + pageCount;
       current.more = result.more;
       setResult((old) => {
         const previous = !reset && old?.key === filterKey ? old.items ?? [] : [];
@@ -54,7 +56,7 @@ export function useOutingPages(filter: Parameters<typeof pageOutings>[2] = {}) {
       });
     } catch {
       if (current.version === version) {
-        setResult((old) => ({
+        setResult((old) => background && old?.key === filterKey && old.items ? old : ({
           key: filterKey, error: true, items: old?.key === filterKey ? old.items : undefined,
         }));
       }
@@ -65,7 +67,7 @@ export function useOutingPages(filter: Parameters<typeof pageOutings>[2] = {}) {
       }
     }
   }, [db, filterKey, query, type, saved]);
-  useFocusEffect(useCallback(() => { void load(true); }, [load]));
+  useFocusEffect(useCallback(() => { void load(true, preserveOnFocus); }, [load, preserveOnFocus]));
   useEffect(() => () => { state.current.version++; }, []);
   const change = useCallback((outing: Outing) => {
     setResult((old) => old && { ...old, items: old.items?.map((item) => item.id === outing.id ? outing : item) });

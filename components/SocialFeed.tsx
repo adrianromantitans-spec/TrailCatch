@@ -27,24 +27,42 @@ export function SocialFeed({ mode, bottom, top, nativeBar, onScroll, feedSwipe }
   const [posts, setPosts] = useState<SocialPost[]>();
   const [refreshing, setRefreshing] = useState(false);
   const [failed, setFailed] = useState(false);
-  const state = useRef({ generation: 0, busy: false, more: true, cursor: undefined as SocialPost | undefined });
+  const state = useRef({ generation: 0, busy: false, more: true, pages: 0, cursor: undefined as SocialPost | undefined });
   const mutations = useRef(new Set<string>());
+  const mutationVersion = useRef(0);
 
-  const load = useCallback(async (reset: boolean) => {
+  const load = useCallback(async (reason: 'focus' | 'refresh' | 'more') => {
     if ((mode === 'nearby' && !point) || (mode === 'following' && !viewer)) return;
     const current = state.current;
+    const reset = reason !== 'more';
     if (!reset && (current.busy || !current.more || !current.cursor)) return;
+    if (reason === 'focus' && current.pages && mutations.current.size) return;
     const generation = reset ? ++current.generation : current.generation;
+    const seenMutationVersion = mutationVersion.current;
+    const targetPages = reason === 'focus' ? Math.max(1, current.pages) : 1;
     current.busy = true;
-    if (reset) setRefreshing(true);
-    setFailed(false);
+    if (reset) setRefreshing(reason === 'refresh');
+    if (reason !== 'focus') setFailed(false);
     try {
-      const results = await feedPage(mode, reset ? undefined : current.cursor, point, viewer);
-      if (generation !== current.generation) return;
-      current.more = results.length === pageSize;
-      current.cursor = results[results.length - 1];
+      // On return, refresh the loaded window without shrinking the list under its scroll position.
+      const results: SocialPost[] = [];
+      let cursor = reset ? undefined : current.cursor;
+      let more = true;
+      let pages = 0;
+      while (pages < targetPages && more) {
+        const page = await feedPage(mode, cursor, point, viewer);
+        if (generation !== current.generation || (reason === 'focus' && seenMutationVersion !== mutationVersion.current)) return;
+        results.push(...page);
+        cursor = page.at(-1);
+        more = page.length === pageSize;
+        pages++;
+      }
+      current.more = more;
+      current.cursor = cursor;
+      current.pages = reset ? pages : current.pages + pages;
       setPosts((previous) => reset ? results : [...(previous ?? []), ...results.filter((item) => !previous?.some(({ id }) => id === item.id))]);
-    } catch { if (generation === current.generation) setFailed(true); }
+      setFailed(false);
+    } catch { if (generation === current.generation && (reason !== 'focus' || !current.pages)) setFailed(true); }
     finally {
       if (generation === current.generation) {
         current.busy = false;
@@ -54,8 +72,8 @@ export function SocialFeed({ mode, bottom, top, nativeBar, onScroll, feedSwipe }
   }, [mode, point, viewer]);
 
   useFocusEffect(useCallback(() => {
-    void load(true);
-    return () => { state.current.generation++; };
+    void load('focus');
+    return () => { state.current.generation++; state.current.busy = false; };
   }, [load]));
 
   async function locate() {
@@ -76,6 +94,7 @@ export function SocialFeed({ mode, bottom, top, nativeBar, onScroll, feedSwipe }
     const lock = `${kind}:${target}`;
     if (mutations.current.has(lock)) return;
     mutations.current.add(lock);
+    mutationVersion.current++;
     const applies = (item: SocialPost) => (kind === 'follows' ? item.user_id : item.id) === target;
     const change = (item: SocialPost, value: boolean) => kind === 'likes'
       ? { ...item, liked: value, likes_count: Math.max(0, item.likes_count + Number(value) - Number(item.liked)) }
@@ -103,9 +122,10 @@ export function SocialFeed({ mode, bottom, top, nativeBar, onScroll, feedSwipe }
     windowSize={5} initialNumToRender={3} maxToRenderPerBatch={5}
     contentInsetAdjustmentBehavior={nativeBar ? 'automatic' : 'never'} progressViewOffset={top}
     contentContainerStyle={{ paddingTop: top, paddingBottom: bottom }}
-    refreshing={refreshing} onRefresh={needsSignIn || needsLocation ? undefined : () => void load(true)} onEndReached={() => void load(false)}
+    maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 0 }}
+    refreshing={refreshing} onRefresh={needsSignIn || needsLocation ? undefined : () => void load('refresh')} onEndReached={() => void load('more')}
     ListEmptyComponent={empty}
-    ListFooterComponent={failed ? <Notice message={t.loadError} retry={() => void load(!posts?.length)} /> : undefined}
+    ListFooterComponent={failed ? <Notice message={t.loadError} retry={() => void load(posts?.length ? 'more' : 'refresh')} /> : undefined}
     renderItem={({ item }) => <SocialPostCard post={item} viewer={viewer} feedSwipe={feedSwipe}
       onLike={(value) => void mutate('likes', item, value)}
       onSave={() => void mutate('saved', item, !item.saved)}

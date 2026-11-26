@@ -51,7 +51,6 @@ export default function Feed() {
   const { onScroll, compact, headerOffset, nativeBar } = useHomeTabScroll(headerHeight);
   const listTop = headerHeight + (nativeBar ? 0 : top);
   const bottom = nativeBar ? 16 : tabClearance;
-  useFocusEffect(useCallback(() => () => { compact?.set(false); headerOffset.set(0); }, [compact, headerOffset]));
   const selectMode = useCallback((next: HomeMode) => {
     if (next === mode) return;
     compact?.set(false);
@@ -70,7 +69,7 @@ export default function Feed() {
         scheduleOnRN(step, translationX < 0 ? 1 : -1);
       }
     }), [step]);
-  const { items, error, refreshing, load, change } = useOutingPages();
+  const { items, error, refreshing, load, change } = useOutingPages({}, { preserveOnFocus: true });
   const currentAuthor = author?.id === viewer ? author : undefined;
 
   async function react(id: string, modify: (item: Outing) => Outing) {
@@ -87,10 +86,11 @@ export default function Feed() {
     <GestureDetector gesture={swipe}>
       <View collapsable={false} style={[styles.screen, { backgroundColor: p.surface }]}>
         {/* UIKit follows the first scroll view. Keep it full-height and put the header above it. */}
-        {mode !== 'local' ? <SocialFeed key={mode} mode={mode} bottom={bottom} top={listTop} nativeBar={nativeBar}
+        {mode !== 'local' ? <SocialFeed key={`${mode}:${viewer ?? 'guest'}`} mode={mode} bottom={bottom} top={listTop} nativeBar={nativeBar}
           onScroll={onScroll} feedSwipe={swipe} /> :
           <Animated.FlatList onScroll={onScroll} scrollEventThrottle={16} keyExtractor={(item) => item.id} data={items ?? []}
             style={styles.screen} contentInsetAdjustmentBehavior={nativeBar ? 'automatic' : 'never'} progressViewOffset={listTop}
+            maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 0 }}
             contentContainerStyle={{ paddingTop: listTop, paddingBottom: bottom }}
             refreshing={refreshing} onRefresh={() => void load(true)} onEndReached={() => void load(false)}
             ListEmptyComponent={error ? undefined : items ? <Notice message={t.empty} /> : <FeedSkeleton />}
