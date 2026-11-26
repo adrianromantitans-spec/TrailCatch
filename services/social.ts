@@ -1,13 +1,13 @@
 import { randomUUID } from 'expo-crypto';
 import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
-import type { OutingType, Photo, Point } from '../db/model';
+import type { CatchSummary, OutingType, Photo, Point } from '../db/model';
 import { backend } from './backend';
 import { photoFile } from './photos';
 import { stripVideoMetadata } from './videoMetadata';
 
 export type Profile = { id: string; display_name: string; avatar_url: string | null; bio?: string };
-type TripPreview = { title: string; type: OutingType; distance?: number };
+type TripPreview = { title: string; type: OutingType; distance?: number; catches?: CatchSummary[] };
 export type PostRow = {
   id: string; user_id: string; spot_id: string | null; trip_id: string | null;
   trip_preview?: TripPreview | null;
@@ -195,17 +195,29 @@ export async function publishPost(input: {
         rows.push({ url, thumbnail_url });
       } finally { try { if (thumbnail.exists) thumbnail.delete(); } catch { /* OS-managed cache. */ } }
     }
-    const result = await client.rpc('publish_post', {
+    const args = {
       message: input.caption, audience: input.audience, approximate: input.approximate,
       attached_spot: input.spotId ?? null, attached_trip: input.tripId ?? null,
       latitude: input.point?.latitude ?? null, longitude: input.point?.longitude ?? null, photos: rows, trip_summary: input.tripPreview ?? null,
-    });
+    };
+    let result = await client.rpc('publish_post', args);
+    if (needsLegacyTripPreview(result.error, input.tripPreview)) {
+      result = await client.rpc('publish_post', { ...args, trip_summary: legacyTripPreview(input.tripPreview) });
+    }
     if (result.error) throw result.error;
     return result.data as string;
   } catch (failure) {
     if (uploaded.length) await bucket.remove(uploaded);
     throw failure;
   }
+}
+
+function needsLegacyTripPreview(error: { code?: string; message: string } | null, preview?: TripPreview): preview is TripPreview {
+  return !!preview?.catches?.length && error?.code === '23514' && /"posts_(?:check\d*|trip_preview_check)"/.test(error.message);
+}
+
+function legacyTripPreview({ title, type, distance }: TripPreview) {
+  return { title, type, distance };
 }
 
 export async function publishReel(input: Parameters<typeof publishPost>[0], reel: ReelAsset) {
@@ -219,11 +231,15 @@ export async function publishReel(input: Parameters<typeof publishPost>[0], reel
   const bucket = client.storage.from('post-videos');
   const result = await bucket.upload(path, data, { contentType: reel.extension === 'mov' ? 'video/quicktime' : 'video/mp4' });
   if (result.error) throw result.error;
-  const published = await client.rpc('publish_reel', {
+  const args = {
     message: input.caption, audience: input.audience, approximate: input.approximate,
     attached_spot: input.spotId ?? null, attached_trip: input.tripId ?? null, trip_summary: input.tripPreview ?? null,
     latitude: input.point?.latitude ?? null, longitude: input.point?.longitude ?? null, video_path: path, duration_ms: durationMs,
-  });
+  };
+  let published = await client.rpc('publish_reel', args);
+  if (needsLegacyTripPreview(published.error, input.tripPreview)) {
+    published = await client.rpc('publish_reel', { ...args, trip_summary: legacyTripPreview(input.tripPreview) });
+  }
   if (!published.error) return published.data as string;
   if (published.status >= 400 && published.status < 500) await bucket.remove([path]);
   else {

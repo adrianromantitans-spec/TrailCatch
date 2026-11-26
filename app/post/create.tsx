@@ -26,6 +26,7 @@ export default function CreatePost() {
   const [audience, setAudience] = useState<'public' | 'friends'>('public');
   const [approximate, setApproximate] = useState(true);
   const [shareLocation, setShareLocation] = useState(false);
+  const [shareCatches, setShareCatches] = useState(true);
   const [trip, setTrip] = useState<string>();
   const [spot, setSpot] = useState<string>();
   const [chooser, setChooser] = useState<'spot' | 'trip'>();
@@ -40,6 +41,7 @@ export default function CreatePost() {
   const files = useRef<Photo[]>([]);
   const active = useRef(true);
   const lock = useRef(false);
+  const tripData = items?.find((item) => item.id === trip);
   useEffect(() => {
     active.current = true;
     return () => { active.current = false; discardPhotos(files.current); files.current = []; };
@@ -107,11 +109,15 @@ export default function CreatePost() {
     lock.current = true; setBusy(true); setMessage('');
     const owned = files.current; files.current = [];
     try {
-      const tripData = items?.find((item) => item.id === trip);
+      const catches = shareCatches ? tripData?.catches.map(({ species, size }) => ({
+        species: Array.from(species?.trim() ?? '').slice(0, 80).join(''),
+        size: typeof size === 'number' && Number.isFinite(size) && size >= 0 ? size : undefined,
+      })) : undefined;
       const input: Parameters<typeof publishPost>[0] = {
         viewer: session.user.id, caption: caption.trim(), audience, approximate, spotId: spot, tripId: trip,
         point: shareLocation ? tripData?.point : undefined, photos: owned,
-        tripPreview: tripData ? { title: tripData.title.slice(0, 120), type: tripData.type, distance: tripData.route?.distance } : undefined,
+        tripPreview: tripData ? { title: tripData.title.slice(0, 120), type: tripData.type, distance: tripData.route?.distance,
+          catches: catches?.length ? catches : undefined } : undefined,
       };
       const id = reel ? await publishReel(input, reel) : await publishPost(input);
       discardPhotos(owned);
@@ -171,6 +177,13 @@ export default function CreatePost() {
       {trip && <View style={styles.metricRow}>
         <Text style={[styles.metricLabel, { color: p.ink }]}>{t.shareLocation}</Text>
         <Switch accessibilityLabel={t.shareLocation} disabled={busy} value={shareLocation} onValueChange={setShareLocation} />
+      </View>}
+      {!!tripData?.catches.length && <View style={styles.group}>
+        <View style={styles.metricRow}>
+          <Text style={[styles.metricLabel, { flex: 1, color: p.ink }]}>{t.shareCatchBadges}</Text>
+          <Switch accessibilityLabel={t.shareCatchBadges} disabled={busy} value={shareCatches} onValueChange={setShareCatches} />
+        </View>
+        <Text style={{ color: p.muted }}>{t.shareCatchBadgesHint}</Text>
       </View>}
       <View style={styles.metricRow}>
         <Text style={[styles.metricLabel, { color: p.ink }]}>{t.approximate}</Text>

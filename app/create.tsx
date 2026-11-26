@@ -6,6 +6,9 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, BackHandler, Keyboard, KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CatchBadge, catchDetails } from '../components/CatchBadge';
+import { CatchEditor, draftNumber, invalidDraftNumber } from '../components/CatchEditor';
+import type { CatchDraft } from '../components/CatchEditor';
 import { CategoryPicker } from '../components/CategoryPicker';
 import { MapView } from '../components/MapView';
 import { OutingCamera } from '../components/OutingCamera';
@@ -18,12 +21,10 @@ import type { PhotoBatch } from '../services/photos';
 
 type Busy = 'save' | 'location';
 type Capture = 'initial' | 'outing' | { catchKey: number };
-type CatchDraft = { key: number; species: string; size: string; weight: string; bait: string; time: string; photo?: Photo };
-const number = (raw: string) => raw.trim() ? Number(raw.trim().replace(',', '.')) : undefined;
-const invalid = (raw: string) => {
-  const value = number(raw);
-  return value !== undefined && (!Number.isFinite(value) || value < 0);
-};
+const toCatch = ({ species, size, weight, bait, time, photo, weather, released }: CatchDraft) => ({
+  species: species.trim(), size: draftNumber(size), weight: draftNumber(weight), bait: bait.trim(),
+  time: time.trim(), photo, weather, released,
+});
 const validDate = (date: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   const parsed = new Date(date);
@@ -58,6 +59,7 @@ export default function Create() {
   const locationAttempt = useRef(0);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [catches, setCatches] = useState<CatchDraft[]>([]);
+  const [editing, setEditing] = useState<CatchDraft>();
   const [route, setRoute] = useState({ distance: '', duration: '', ascent: '' });
   const [busy, setBusy] = useState<Busy>();
   const busyRef = useRef<Busy | undefined>(undefined);
@@ -82,9 +84,25 @@ export default function Create() {
     pending.current.delete(photo);
   }
 
-  function updateCatch(key: number, values: Partial<CatchDraft>) {
-    setCatches((old) => old.map((item) => item.key === key ? { ...item, ...values } : item));
+  function discardDraftPhoto(photo: Photo) {
+    discardPhotos([photo]);
+    pending.current.delete(photo);
   }
+
+  const originalCatch = editing && catches.find(({ key }) => key === editing.key);
+  const cancelCatch = useCallback(() => {
+    if (editing?.photo && editing.photo !== originalCatch?.photo) {
+      discardPhotos([editing.photo]);
+      pending.current.delete(editing.photo);
+    }
+    setEditing(undefined);
+  }, [editing, originalCatch]);
+
+  useFocusEffect(useCallback(() => {
+    if (!editing || capture !== null) return;
+    const listener = BackHandler.addEventListener('hardwareBackPress', () => { cancelCatch(); return true; });
+    return () => listener.remove();
+  }, [editing, capture, cancelCatch]));
 
   function begin(action: Busy) {
     if (busyRef.current) return false;
@@ -156,15 +174,11 @@ export default function Create() {
       return;
     }
     if (typeof capture === 'object') {
-      const draft = catches.find(({ key }) => key === capture.catchKey);
       const [photo] = batch.photos;
-      if (draft && photo) {
-        if (draft.photo) {
-          discardPhotos([draft.photo]);
-          pending.current.delete(draft.photo);
-        }
+      if (editing?.key === capture.catchKey && photo) {
+        if (editing.photo && editing.photo !== originalCatch?.photo) discardDraftPhoto(editing.photo);
         pending.current.add(photo);
-        updateCatch(draft.key, { photo });
+        setEditing({ ...editing, photo });
         discardPhotos(batch.photos.slice(1));
       } else discardPhotos(batch.photos);
     } else {
@@ -186,9 +200,7 @@ export default function Create() {
       return;
     }
     const catchItems = type === 'hike' ? [] : catches;
-    if (catchItems.some((item) => invalid(item.size) || invalid(item.weight) ||
-      (item.time.trim() !== '' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(item.time.trim()))) ||
-      (type !== 'fishing' && Object.values(route).some(invalid))) {
+    if (type !== 'fishing' && Object.values(route).some(invalidDraftNumber)) {
       setError(t.invalidNumbers);
       return;
     }
@@ -201,12 +213,9 @@ export default function Create() {
       await insertOuting(db, {
         id: randomUUID(), title: title.trim(), date: day,
         notes: notes.trim(), point, type, photos,
-        catches: catchItems.map((item) => ({
-          species: item.species.trim(), size: number(item.size), weight: number(item.weight),
-          bait: item.bait.trim(), time: item.time.trim(), photo: item.photo,
-        })),
+        catches: catchItems.map(toCatch),
         route: type === 'fishing' ? undefined : {
-          distance: number(route.distance), duration: number(route.duration), ascent: number(route.ascent),
+          distance: draftNumber(route.distance), duration: draftNumber(route.duration), ascent: draftNumber(route.ascent),
         },
         likes: 0, liked: false, saved: false, comments: [],
       });
@@ -223,84 +232,108 @@ export default function Create() {
   }
 
   if (capture !== null) {
-    const catchTarget = typeof capture === 'object' ? catches.find(({ key }) => key === capture.catchKey) : undefined;
     return <OutingCamera onClose={closeCamera} onPhotos={acceptPhotos} multiple={typeof capture === 'string'}
       readLocation={typeof capture === 'string' && !point}
-      preview={typeof capture === 'object' ? catchTarget?.photo : photos[photos.length - 1]} />;
+      preview={typeof capture === 'object' ? editing?.photo : photos[photos.length - 1]} />;
   }
 
-  return <KeyboardAvoidingView behavior="padding" style={[styles.screen, { backgroundColor: p.bg }]}>
-    <Header title={t.create} back={() => router.back()} />
-    <ScrollView className="flex-1" keyboardShouldPersistTaps="handled"
-      contentInsetAdjustmentBehavior="never"
-      contentContainerStyle={[styles.content, { gap: 24 }]}>
-      <View style={formStyles.group}>
-        <Text style={[styles.section, { color: p.ink }]}>{t.photos}</Text>
-        {photos.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          {photos.map((photo) => <OutingThumbnail key={'uri' in photo ? photo.uri : photo.sample} photo={photo}
-            disabled={!!busy} onRemove={() => {
-              remove(photo);
-              setPhotos((old) => old.filter((item) => item !== photo));
-            }} />)}
-        </ScrollView>}
-        <Button label={t.addMorePhotos} icon="add" dashed singleLine disabled={!!busy} onPress={() => openCamera('outing')} />
-      </View>
-      <View style={formStyles.group}>
-        <CategoryPicker value={type} onChange={setType} disabled={!!busy} />
-        <Field label={t.title} value={title} onChangeText={setTitle} />
-        <Field label={t.date} value={date} onChangeText={setDate} placeholder={t.dateHint} autoCapitalize="none" maxLength={10} />
-        <Field label={t.notes} value={notes} onChangeText={setNotes} multiline />
-      </View>
-      <View style={formStyles.group}>
-        <View style={{ gap: 4 }}>
-          <Text style={[styles.section, { color: p.ink }]}>{t.location}</Text>
-          <Text style={{ color: p.muted }}>{t.pickPoint}</Text>
+  return <View style={styles.screen}>
+    <KeyboardAvoidingView behavior="padding" accessibilityElementsHidden={!!editing} pointerEvents={editing ? 'none' : 'auto'}
+      importantForAccessibility={editing ? 'no-hide-descendants' : 'auto'} style={[styles.screen, { backgroundColor: p.bg }]}>
+      <Header title={t.create} back={() => router.back()} />
+      <ScrollView className="flex-1" keyboardShouldPersistTaps="handled"
+        contentInsetAdjustmentBehavior="never"
+        contentContainerStyle={[styles.content, { gap: 24 }]}>
+        <View style={formStyles.group}>
+          <Text style={[styles.section, { color: p.ink }]}>{t.photos}</Text>
+          {photos.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {photos.map((photo) => <OutingThumbnail key={'uri' in photo ? photo.uri : photo.sample} photo={photo}
+              disabled={!!busy} onRemove={() => {
+                remove(photo);
+                setPhotos((old) => old.filter((item) => item !== photo));
+              }} />)}
+          </ScrollView>}
+          <Button label={t.addMorePhotos} icon="add" dashed singleLine disabled={!!busy} onPress={() => openCamera('outing')} />
         </View>
-        <MapView point={point} movedTo={movedTo} onPick={(value) => { locationAttempt.current++; choosePoint(value, false); }} height={200} />
-        <Button label={busy === 'location' ? t.loading : t.myLocation} icon="locate-outline" singleLine disabled={!!busy} onPress={() => void locate()} />
-        {locationMessage && <Text accessibilityLiveRegion="polite" style={{ color: p.danger }}>{locationMessage}</Text>}
-      </View>
-      {type !== 'hike' && <View style={formStyles.group}>
-        <Text style={[styles.section, { color: p.ink }]}>{t.catches}</Text>
-        {catches.map((item) => <View key={item.key} style={[formStyles.catchCard, { borderColor: p.line, backgroundColor: p.surface }]}>
-          {(['species', 'size', 'weight', 'bait', 'time'] as const).map((field) => <Field key={field}
-            label={t[field]} value={item[field]} onChangeText={(value) => updateCatch(item.key, { [field]: value })}
-            keyboardType={field === 'size' || field === 'weight' ? 'decimal-pad' : 'default'} />)}
-          <Text style={{ color: p.muted, fontWeight: '600' }}>{t.photo}</Text>
-          {item.photo && <OutingThumbnail photo={item.photo} disabled={!!busy}
-            onRemove={() => { remove(item.photo!); updateCatch(item.key, { photo: undefined }); }} />}
-          <Button label={item.photo ? t.changeCatchPhoto : t.addCatchPhoto} icon="add"
-            disabled={!!busy} onPress={() => openCamera({ catchKey: item.key })} />
-          <Button label={t.removeCatch} danger disabled={!!busy} onPress={() => {
-            if (item.photo) {
-              discardPhotos([item.photo]);
-              pending.current.delete(item.photo);
-            }
-            setCatches((old) => old.filter(({ key }) => key !== item.key));
+        <View style={formStyles.group}>
+          <CategoryPicker value={type} onChange={setType} disabled={!!busy} />
+          <Field label={t.title} value={title} onChangeText={setTitle} />
+          <Field label={t.date} value={date} onChangeText={setDate} placeholder={t.dateHint} autoCapitalize="none" maxLength={10} />
+          <Field label={t.notes} value={notes} onChangeText={setNotes} multiline />
+        </View>
+        <View style={formStyles.group}>
+          <View style={{ gap: 4 }}>
+            <Text style={[styles.section, { color: p.ink }]}>{t.location}</Text>
+            <Text style={{ color: p.muted }}>{t.pickPoint}</Text>
+          </View>
+          <MapView point={point} movedTo={movedTo} onPick={(value) => { locationAttempt.current++; choosePoint(value, false); }} height={200} />
+          <Button label={busy === 'location' ? t.loading : t.myLocation} icon="locate-outline" singleLine disabled={!!busy} onPress={() => void locate()} />
+          {locationMessage && <Text accessibilityLiveRegion="polite" style={{ color: p.danger }}>{locationMessage}</Text>}
+        </View>
+        {type !== 'hike' && <View style={formStyles.group}>
+          <Text style={[styles.section, { color: p.ink }]}>{t.catches}</Text>
+          {catches.map((item) => {
+            const entry = toCatch(item);
+            const details = catchDetails(entry);
+            return <View key={item.key} style={[formStyles.catchCard, { borderColor: p.line, backgroundColor: p.surface }]}>
+              {item.photo && <Image source={photoSource(item.photo)} style={formStyles.catchPhoto} contentFit="cover" />}
+              <View style={formStyles.catchCopy}>
+                <CatchBadge capture={entry} />
+                {!!details && <Text numberOfLines={2} style={{ color: p.muted }}>{details}</Text>}
+              </View>
+              <IconButton name="pencil-outline" label={t.editCatch} onPress={() => {
+                if (busyRef.current) return;
+                Keyboard.dismiss();
+                setEditing(item);
+              }} />
+              <IconButton name="trash-outline" label={t.removeCatch} color={p.danger} onPress={() => {
+                if (busyRef.current) return;
+                if (item.photo) discardDraftPhoto(item.photo);
+                setCatches((old) => old.filter(({ key }) => key !== item.key));
+              }} />
+            </View>;
+          })}
+          <Button label={t.addCatch} icon="add" disabled={!!busy} onPress={() => {
+            Keyboard.dismiss();
+            setEditing({ key: nextCatch.current++, species: '', size: '', weight: '', bait: '', time: '', released: false });
           }} />
-        </View>)}
-        <Button label={t.addCatch} icon="add" disabled={!!busy} onPress={() => {
-          const key = nextCatch.current++;
-          setCatches((old) => [...old, { key, species: '', size: '', weight: '', bait: '', time: '' }]);
+        </View>}
+        {type !== 'fishing' && <View style={formStyles.group}>
+          <Text style={[styles.section, { color: p.ink }]}>{t.hike}</Text>
+          {(['distance', 'duration', 'ascent'] as const).map((field) => <Field key={field} label={t[field]}
+            value={route[field]} keyboardType="decimal-pad" onChangeText={(value) => setRoute((old) => ({ ...old, [field]: value }))} />)}
+        </View>}
+      </ScrollView>
+      <View style={[formStyles.footer, { paddingBottom: Math.max(inset.bottom, 12),
+        backgroundColor: p.bg, borderColor: p.line }]}>
+        {error && <Text accessibilityLiveRegion="polite" style={{ color: p.danger }}>{error}</Text>}
+        <Button label={busy === 'save' ? t.saving : t.save} primary disabled={!!busy} onPress={() => void save()} />
+      </View>
+    </KeyboardAvoidingView>
+    {editing && <View style={StyleSheet.absoluteFill} accessibilityViewIsModal>
+      <CatchEditor key={editing.key} draft={editing} existing={!!originalCatch}
+        onChange={(values) => setEditing((old) => old && { ...old, ...values })} onCancel={cancelCatch}
+        onPhoto={() => openCamera({ catchKey: editing.key })}
+        onRemovePhoto={() => {
+          if (editing.photo && editing.photo !== originalCatch?.photo) discardDraftPhoto(editing.photo);
+          setEditing({ ...editing, photo: undefined });
+        }}
+        onSave={() => {
+          if (originalCatch?.photo && originalCatch.photo !== editing.photo) discardDraftPhoto(originalCatch.photo);
+          setCatches((old) => originalCatch
+            ? old.map((item) => item.key === editing.key ? editing : item) : [...old, editing]);
+          Keyboard.dismiss();
+          setEditing(undefined);
         }} />
-      </View>}
-      {type !== 'fishing' && <View style={formStyles.group}>
-        <Text style={[styles.section, { color: p.ink }]}>{t.hike}</Text>
-        {(['distance', 'duration', 'ascent'] as const).map((field) => <Field key={field} label={t[field]}
-          value={route[field]} keyboardType="decimal-pad" onChangeText={(value) => setRoute((old) => ({ ...old, [field]: value }))} />)}
-      </View>}
-    </ScrollView>
-    <View style={[formStyles.footer, { paddingBottom: Math.max(inset.bottom, 12),
-      backgroundColor: p.bg, borderColor: p.line }]}>
-      {error && <Text accessibilityLiveRegion="polite" style={{ color: p.danger }}>{error}</Text>}
-      <Button label={busy === 'save' ? t.saving : t.save} primary disabled={!!busy} onPress={() => void save()} />
-    </View>
-  </KeyboardAvoidingView>;
+    </View>}
+  </View>;
 }
 
 
 const formStyles = StyleSheet.create({
   group: { gap: 16 },
   footer: { paddingTop: 12, paddingHorizontal: side, borderTopWidth: StyleSheet.hairlineWidth, gap: 8 },
-  catchCard: { gap: 16, padding: 16, borderRadius: 16, borderWidth: 1 },
+  catchCard: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 8, borderRadius: 16, borderWidth: 1 },
+  catchPhoto: { width: 40, height: 40, borderRadius: 8 },
+  catchCopy: { flex: 1, minWidth: 0, gap: 4 },
 });

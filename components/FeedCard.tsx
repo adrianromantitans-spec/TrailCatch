@@ -5,6 +5,7 @@ import { Outing, photoList } from '../db/model';
 import { relativeDate, t } from '../i18n';
 import { photoSource } from '../services/photos';
 import type { Profile } from '../services/social';
+import { CatchBadges } from './CatchBadge';
 import { FeedActions } from './FeedActions';
 import { FeedPhotos, useFeedPhotoFrame } from './FeedPhotos';
 import type { FeedSwipe } from './FeedPhotos';
@@ -42,6 +43,7 @@ export function FeedCard({ item, author, onLike, onSave, onComment, feedSwipe }:
           </Text>
         </Pressable>
       </Link>
+      <CatchBadges catches={item.catches} />
       <FeedPhotos photos={photoList(item)} feedSwipe={feedSwipe} photoKey={(photo, index) =>
         `${'uri' in photo ? photo.uri : photo.sample}-${index}`} renderPhoto={(photo) => <Link href={destination} asChild>
           <Pressable accessibilityLabel={item.title} style={styles.screen}>

@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { Alert, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategoryBadge } from '../../components/CategoryPicker';
+import { CatchBadges } from '../../components/CatchBadge';
 import { ReelVideo } from '../../components/ReelVideo';
 import { Button, Header, Notice, side, styles, usePalette } from '../../components/ui';
 import { t } from '../../i18n';
@@ -66,6 +67,7 @@ export default function PostDetail() {
           <Text style={[styles.section, { color: p.ink }]}>{post.trip_preview.title}</Text>
           <CategoryBadge type={post.trip_preview.type} />
           {post.trip_preview.distance != null && <Text style={{ color: p.ink }}>{post.trip_preview.distance} {t.units.km}</Text>}
+          <CatchBadges catches={post.trip_preview.catches} />
         </View>}
         <Button label={post.comments_count ? t.openCommentCount(post.comments_count) : t.commentPlaceholder}
           icon="chatbubble-outline" onPress={() => router.push({ pathname: '/post/comments', params: { id } })} />

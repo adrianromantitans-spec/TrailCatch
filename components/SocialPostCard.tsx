@@ -7,6 +7,7 @@ import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { relativeDate, t } from '../i18n';
 import type { SocialPost } from '../services/social';
+import { CatchBadges } from './CatchBadge';
 import { FeedActions } from './FeedActions';
 import { feedCardAvatarSize, feedCardLayout } from './FeedCard';
 import { FeedPhotos } from './FeedPhotos';
@@ -64,6 +65,7 @@ export function SocialPostCard({ post, viewer, onLike, onSave, onFollow, feedSwi
       {post.caption.length > 100 && <Text accessibilityRole="button" style={{ color: p.accent }}
         onPress={() => setExpanded(!expanded)}>{expanded ? t.less : t.more}</Text>}
       {post.video && <Button label={t.playReel} icon="play-outline" onPress={open} />}
+      <CatchBadges catches={post.trip_preview?.catches} />
       {!!post.latestComment && <Text numberOfLines={1} style={{ color: p.ink }}>
         <Text style={feedCardLayout.name}>{post.latestComment.author?.display_name ?? t.unavailable}</Text> {post.latestComment.body}
       </Text>}

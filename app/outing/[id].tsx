@@ -5,6 +5,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { ComponentRef, useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CatchBadge, catchDetails } from '../../components/CatchBadge';
 import { Conditions } from '../../components/Conditions';
 import { MapView } from '../../components/MapView';
 import { OutingShareCard } from '../../components/OutingShareCard';
@@ -69,16 +70,23 @@ export default function Detail() {
         {item.notes ? <Text style={{ color: p.ink, fontSize: 16 }}>{item.notes}</Text> : null}
         {item.catches.length > 0 && <View style={{ gap: 8 }}>
           <Text style={[styles.section, { color: p.ink }]}>{t.catches}</Text>
-          {item.catches.map((capture, index) => <View key={`catch-${item.id}-${index}`} style={styles.group}>
-            <Text style={{ color: p.ink }}>
-              {[capture.species, capture.size == null ? '' : `${capture.size} ${t.units.cm}`,
-                capture.weight == null ? '' : `${capture.weight} ${t.units.kg}`, capture.bait, capture.time].filter(Boolean).join(' · ') || t.unavailable}
-            </Text>
-            <Button label={t.shareCatch} icon="share-outline" onPress={() => setShareData({
-              category: t.fishing, title: capture.species || item.title, photo: capture.photo ?? item.photos[0],
-              metric: capture.size == null ? undefined : `${capture.size.toLocaleString(locale)} ${t.units.cm}`,
-            })} />
-          </View>)}
+          {item.catches.map((capture, index) => {
+            const details = catchDetails(capture);
+            return <View key={`catch-${item.id}-${index}`} style={styles.group}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {capture.photo && <Image source={photoSource(capture.photo)} contentFit="cover"
+                  style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: p.soft }} />}
+                <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+                  <CatchBadge capture={capture} />
+                  {!!details && <Text style={{ color: p.ink }}>{details}</Text>}
+                </View>
+              </View>
+              <Button label={t.shareCatch} icon="share-outline" onPress={() => setShareData({
+                category: t.fishing, title: capture.species || item.title, photo: capture.photo ?? item.photos[0],
+                metric: capture.size == null ? undefined : `${capture.size.toLocaleString(locale)} ${t.units.cm}`,
+              })} />
+            </View>;
+          })}
         </View>}
         {item.route && <View style={{ gap: 8 }}>
           <Text style={[styles.section, { color: p.ink }]}>{t.hike}</Text>

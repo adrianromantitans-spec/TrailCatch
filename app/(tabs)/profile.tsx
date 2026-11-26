@@ -9,6 +9,7 @@ import Storage from 'expo-sqlite/kv-store';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, BackHandler, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { AnnualBars, monthName } from '../../components/AnnualBars';
 import { TabContent, useTabClearance } from '../../components/GlassTabBar';
 import { FeedHeader } from '../../components/FeedHeader';
 import { GridSkeleton } from '../../components/Skeleton';
@@ -20,7 +21,7 @@ import { useDiary } from '../../db/useDiary';
 import { locale, t } from '../../i18n';
 import { backend, useSession } from '../../services/backend';
 import { exportPhotos, photoSource, removeAllPhotos } from '../../services/photos';
-import { annualStats } from '../../services/stats';
+import { annualStats, diaryStats } from '../../services/stats';
 
 const gridGap = 2;
 const profileSide = 16;
@@ -30,12 +31,10 @@ const identityKey = 'trailcatch-diary-profile';
 const gridTabs = ['outings', 'catches', 'saved'] as const;
 type GridTab = typeof gridTabs[number];
 type Identity = { display_name: string; bio: string; avatar_url: string | null };
-type GridTile = { key: string; id: string; title: string; date: string; type: OutingType; photo?: Photo; hasCatch: boolean; length: number };
+type GridTile = { key: string; id: string; title: string; date: string; type: OutingType; photo?: Photo; species?: string; hasCatch: boolean; length: number };
 const defaultIdentity: Identity = { display_name: t.personal, bio: '', avatar_url: null };
 const noOutings: Outing[] = [];
 const dateFormatter = new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' });
-const monthFormatter = new Intl.DateTimeFormat(locale, { month: 'narrow', timeZone: 'UTC' });
-const monthInitials = Array.from({ length: 12 }, (_, month) => monthFormatter.format(Date.UTC(2024, month, 1)));
 const numberFormatter = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
 
 function formatDate(date: string) {
@@ -51,28 +50,23 @@ function formatLastOuting(date: string, today: string) {
   return label.charAt(0).toLocaleUpperCase(locale) + label.slice(1);
 }
 
-function makeTiles(outings: Outing[], tab: GridTab): GridTile[] {
+const speciesKey = (value: string) => value.trim().toLocaleLowerCase(locale).normalize('NFD').replace(/\p{Diacritic}/gu, '');
+
+function makeTiles(outings: Outing[], tab: GridTab, species?: string): GridTile[] {
   return outings.flatMap((entry) => {
     const { id, title, date, type } = entry;
     if (tab === 'saved' && !entry.saved) return [];
-    const photos = tab === 'catches' ? entry.catches.flatMap(({ photo }) => photo ? [photo] : [])
-      : tab === 'saved' ? photoList(entry) : entry.photos;
+    if (tab === 'catches') {
+      return entry.catches.flatMap((capture, index) => !species || speciesKey(capture.species ?? '') === species
+        ? [{ id, title, date, type, key: `${id}-catch-${index}`, photo: capture.photo, species: capture.species || t.species,
+          hasCatch: true, length: Number.isFinite(capture.size) ? capture.size ?? 0 : 0 }] : []);
+    }
+    const photos = tab === 'saved' ? photoList(entry) : entry.photos;
     const length = entry.catches.reduce((maximum, item) => Number.isFinite(item.size) ? Math.max(maximum, item.size ?? 0) : maximum, 0);
     const tile = { id, title, date, type, hasCatch: entry.catches.length > 0, length };
     return photos.length ? photos.map((photo, index) => ({ ...tile, key: `${id}-${index}`, photo }))
-      : tab === 'catches' ? [] : [{ ...tile, key: id }];
+      : [{ ...tile, key: id }];
   });
-}
-
-function largestCatch(outings: Outing[]) {
-  let length = 0;
-  let weight = 0;
-  for (const outing of outings) for (const item of outing.catches) {
-    if (Number.isFinite(item.size)) length = Math.max(length, item.size ?? 0);
-    if (Number.isFinite(item.weight)) weight = Math.max(weight, item.weight ?? 0);
-  }
-  if (length) return `${numberFormatter.format(length)} ${t.units.cm}`;
-  return weight ? `${numberFormatter.format(weight)} ${t.units.kg}` : '—';
 }
 
 function profileHandle(preferred: unknown, name: string) {
@@ -86,10 +80,21 @@ async function shareDiary(db: SQLiteDatabase) {
   if (!(await isAvailableAsync())) throw new Error(t.exportError);
   const outings = (await allOutings(db)).filter((item) => !item.sample);
   const attachments = await exportPhotos(outings.flatMap(photoList));
+  const { catches, distance, biggestCatch, longestOuting, mostActiveMonth } = diaryStats(outings);
+  const years = new Set(outings.map((item) => Number(item.date.slice(0, 4))).filter((year) => year > 0 && year <= 9999));
+  const statistics = {
+    outings: outings.length, catches, totalKm: distance, lastOutingDate: outings[0]?.date,
+    records: {
+      biggestCatch: biggestCatch && { outingId: biggestCatch.outing.id, species: biggestCatch.capture.species, size: biggestCatch.size },
+      longestOuting: longestOuting && { outingId: longestOuting.outing.id, distance: longestOuting.distance },
+      mostActiveMonth,
+    },
+    annual: Object.fromEntries([...years].sort((a, b) => b - a).map((year) => [year, annualStats(outings, year)])),
+  };
   exportsDirectory.create({ idempotent: true, intermediates: true });
   const file = new File(exportsDirectory, `trailcatch-${Date.now()}.json`);
   file.create();
-  file.write(JSON.stringify({ version: 1, outings, attachments }, null, 2));
+  file.write(JSON.stringify({ version: 1, outings, attachments, statistics }, null, 2));
   await shareAsync(file.uri, { mimeType: 'application/json', UTI: 'public.json', dialogTitle: t.export });
 }
 
@@ -106,6 +111,7 @@ export default function Profile() {
   const [gridWidth, setGridWidth] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [tab, setTab] = useState<GridTab>('outings');
+  const [species, setSpecies] = useState<string>();
   const [identity, setIdentity] = useState<{ viewer?: string; data: Identity }>();
   const [draft, setDraft] = useState<Identity>();
   const [avatarFailed, setAvatarFailed] = useState<string>();
@@ -134,12 +140,22 @@ export default function Profile() {
   }, [menuOpen]));
 
   const outings = items ?? noOutings;
-  const tiles = useMemo(() => makeTiles(outings, tab), [outings, tab]);
+  const speciesOptions = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const outing of outings) for (const capture of outing.catches) {
+      const name = capture.species?.trim();
+      if (name && !names.has(speciesKey(name))) names.set(speciesKey(name), name);
+    }
+    return [...names].sort(([, a], [, b]) => a.localeCompare(b, locale));
+  }, [outings]);
+  const activeSpecies = speciesOptions.some(([key]) => key === species) ? species : undefined;
+  const tiles = useMemo(() => makeTiles(outings, tab, activeSpecies), [activeSpecies, outings, tab]);
+  const stats = useMemo(() => diaryStats(outings), [outings]);
   const tileWidth = Math.max(0, (gridWidth - profileSide * 2 - gridGap * 2) / 3);
   const year = Number(today.slice(0, 4));
   const currentMonth = Number(today.slice(5, 7)) - 1;
   const annual = useMemo(() => annualStats(outings, year), [outings, year]);
-  const peak = Math.max(1, ...annual.months);
+
   const currentIdentity = identity?.viewer === viewer ? identity?.data ?? defaultIdentity : defaultIdentity;
   const metadata = session?.user.user_metadata;
   const name = currentIdentity.display_name;
@@ -197,19 +213,35 @@ export default function Profile() {
     );
   }
 
+  const bestSize = stats.biggestCatch ? `${numberFormatter.format(stats.biggestCatch.size)} ${t.units.cm}` : '—';
   const counts = [
     [t.outings, numberFormatter.format(outings.length)],
-    [t.catches, numberFormatter.format(outings.reduce((total, item) => total + item.catches.length, 0))],
-    [t.largestCatch, largestCatch(outings)], [t.lastOuting, outings[0] ? formatLastOuting(outings[0].date, today) : '—'],
+    [t.catches, numberFormatter.format(stats.catches)],
+    [t.largestCatch, bestSize],
+    [t.totalKm, `${numberFormatter.format(stats.distance)} ${t.units.km}`],
+    [t.lastOuting, outings[0] ? formatLastOuting(outings[0].date, today) : '—'],
   ];
+  const recordMonth = stats.mostActiveMonth?.key;
+  const records = [
+    [t.largestCatch, stats.biggestCatch ? `${stats.biggestCatch.capture.species || t.species} · ${bestSize}` : '—'],
+    [t.longestOuting, stats.longestOuting ? `${stats.longestOuting.outing.title} · ${numberFormatter.format(stats.longestOuting.distance)} ${t.units.km}` : '—'],
+    [t.mostActiveMonth, recordMonth ? `${monthName(Number(recordMonth.slice(5, 7)) - 1)} ${recordMonth.slice(0, 4)} · ${stats.mostActiveMonth?.count}` : '—'],
+  ];
+  const openStats = (month?: number) => router.push({ pathname: '/stats', params: {
+    year: String(year), ...(month === undefined ? {} : { month: String(month + 1) }),
+  } });
   const empty = error ? <Notice message={t.loadError} retry={() => void load()} />
     : !items ? <GridSkeleton profile inset={0} />
     : !outings.length ? <EmptyState icon="camera-outline" message={t.empty}
       action={t.addFirstOuting} onAction={() => router.push('/create')} />
     : <EmptyState icon={tab === 'catches' ? 'fish-outline' : 'bookmark-outline'}
-      message={tab === 'catches' ? t.noCatchPhotos : t.noSavedOutings}
-      action={tab === 'catches' ? t.create : t.diary}
-      onAction={() => { if (tab === 'catches') router.push('/create'); else setTab('outings'); }} />;
+      message={tab === 'catches' ? (activeSpecies ? t.noSpeciesCatches : t.noCatchPhotos) : t.noSavedOutings}
+      action={tab === 'catches' ? (activeSpecies ? t.allSpecies : t.create) : t.diary}
+      onAction={() => {
+        if (tab !== 'catches') setTab('outings');
+        else if (activeSpecies) setSpecies(undefined);
+        else router.push('/create');
+      }} />;
 
   const footer = tab === 'saved' && viewer ? <View style={profileStyles.footer}>
     <Button label={t.savedPosts} icon="bookmark-outline" onPress={() => router.push('/saved')} />
@@ -263,36 +295,30 @@ export default function Profile() {
             </View>
           </View> : null}
           <View style={profileStyles.counts}>
-            {counts.map(([label, count], index) => <View key={label} style={[profileStyles.stat,
-              index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderColor: p.line }]}>
-              <Text numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75}
+            {counts.map(([label, count]) => <View key={label} style={[profileStyles.stat, { backgroundColor: p.field }]}>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}
                 style={[profileStyles.count, { color: p.accent }]}>{items ? count : '—'}</Text>
               <Text style={[profileStyles.statLabel, { color: p.muted }]}>{label}</Text>
             </View>)}
           </View>
-          <Pressable cssInterop={false} accessibilityRole="button"
-            accessibilityLabel={`${t.annual}, ${year}, ${t.outings} ${annual.total}, ${t.catches} ${annual.catches}`}
-            onPress={() => router.push('/stats')} style={({ pressed }) => [profileStyles.annual, {
-              backgroundColor: pressed ? p.soft : p.field,
-            }]}>
-            <View style={profileStyles.annualCopy}>
-              <Text style={[profileStyles.annualTitle, { color: p.ink }]}>{t.annual}</Text>
-              <Text style={[profileStyles.total, { color: p.muted }]}>{year} · {annual.total} {t.outings.toLocaleLowerCase(locale)} · {annual.catches} {t.catches.toLocaleLowerCase(locale)}</Text>
-            </View>
-            <View style={profileStyles.chart} accessible={false} importantForAccessibility="no-hide-descendants">
-              {annual.months.map((count, month) => <View key={month} style={profileStyles.chartColumn}>
-                <View style={[profileStyles.chartBar, {
-                  height: 3 + 21 * count / peak, backgroundColor: month === currentMonth ? p.accent : count ? '#74A78D' : p.line,
-                }]} />
-                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65} maxFontSizeMultiplier={1}
-                  style={[profileStyles.monthLabel, { color: p.muted },
-                    month === currentMonth && { color: onBrand, backgroundColor: p.accent, fontWeight: '700' }]}>
-                  {monthInitials[month]}
-                </Text>
-              </View>)}
-            </View>
-            <Ionicons name="chevron-forward" size={14} color={p.accent} />
-          </Pressable>
+          <View style={[profileStyles.annual, { backgroundColor: p.field }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`${t.annual}, ${year}`}
+              onPress={() => openStats()} style={profileStyles.annualHeading}>
+              <View style={profileStyles.annualCopy}>
+                <Text style={[profileStyles.annualTitle, { color: p.ink }]}>{t.annual}</Text>
+                <Text style={[profileStyles.total, { color: p.muted }]}>{year} · {annual.total} {t.outings.toLocaleLowerCase(locale)} · {annual.catches} {t.catches.toLocaleLowerCase(locale)}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={14} color={p.accent} />
+            </Pressable>
+            <AnnualBars counts={annual.months} active={currentMonth} onSelect={openStats} />
+          </View>
+          <View style={[profileStyles.annual, { backgroundColor: p.field }]}>
+            <Text style={[profileStyles.annualTitle, { color: p.ink }]}>{t.records}</Text>
+            {records.map(([label, value]) => <View key={label} style={profileStyles.record}>
+              <Text style={[profileStyles.recordLabel, { color: p.muted }]}>{label}</Text>
+              <Text style={[profileStyles.recordValue, { color: p.accent }]}>{value}</Text>
+            </View>)}
+          </View>
           <View accessibilityRole="tablist" style={profileStyles.tabs}>
             {gridTabs.map((key) => <Pressable key={key} cssInterop={false} accessibilityRole="tab"
               accessibilityState={{ selected: tab === key }} onPress={() => { setTab(key); setLimit(PAGE_SIZE); }}
@@ -301,20 +327,26 @@ export default function Profile() {
                 style={[profileStyles.tabLabel, { color: tab === key ? p.accent : p.muted }]}>{t[key]}</Text>
             </Pressable>)}
           </View>
+          {tab === 'catches' && !!speciesOptions.length && <ScrollView horizontal showsHorizontalScrollIndicator={false}
+            accessibilityLabel={t.filterSpecies} contentContainerStyle={profileStyles.speciesFilters}>
+            <Button label={t.allSpecies} selected={!activeSpecies} onPress={() => { setSpecies(undefined); setLimit(PAGE_SIZE); }} />
+            {speciesOptions.map(([key, name]) => <Button key={key} label={name} selected={key === activeSpecies}
+              onPress={() => { setSpecies(key); setLimit(PAGE_SIZE); }} />)}
+          </ScrollView>}
         </View> : undefined}
         ListEmptyComponent={!tiles.length ? empty : undefined}
         ListFooterComponent={footer}
         renderItem={({ item }) => {
           const date = formatDate(item.date);
           const measured = item.length > 0 ? `${numberFormatter.format(item.length)} ${t.units.cm}` : '';
-          const catchLabel = measured || t.catches;
+          const catchLabel = [item.species, measured].filter(Boolean).join(' · ') || t.catches;
           return <Link href={{ pathname: '/outing/[id]', params: { id: item.id } }} asChild>
             <Pressable accessibilityRole="button"
               accessibilityLabel={[item.title, t[item.type], date, item.hasCatch && catchLabel].filter(Boolean).join(', ')}
               style={StyleSheet.flatten([profileStyles.tile, { width: tileWidth, backgroundColor: p.soft }])}>
               {item.photo ? <Image source={photoSource(item.photo)} style={StyleSheet.absoluteFill}
                 recyclingKey={item.key} cachePolicy="memory" transition={140} />
-                : <Ionicons name="image-outline" size={24} color={p.accent} />}
+                : <Ionicons name={item.species ? 'fish-outline' : 'image-outline'} size={24} color={p.accent} />}
               <View pointerEvents="none" style={profileStyles.tileShade}>
                 <Svg width="100%" height="100%">
                   <Defs>
@@ -329,8 +361,8 @@ export default function Profile() {
               </View>
               {item.hasCatch && <View pointerEvents="none" style={profileStyles.catchChip}>
                 <Ionicons name="fish-outline" size={12} color={onBrand} />
-                {!!measured && <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1.3}
-                  style={[profileStyles.catchLabel, { color: onBrand }]}>{measured}</Text>}
+                {(!!item.species || !!measured) && <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1.3}
+                  style={[profileStyles.catchLabel, { color: onBrand }]}>{catchLabel}</Text>}
               </View>}
               <View pointerEvents="none" style={profileStyles.tileMeta}>
                 <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1.3}
@@ -377,18 +409,19 @@ const profileStyles = StyleSheet.create({
   editLabel: { flexShrink: 1, fontSize: 12, fontWeight: '700' },
   handle: { fontSize: 13 },
   bio: { fontSize: 13 },
-  counts: { flexDirection: 'row', paddingVertical: 8 },
-  stat: { flex: 1, minWidth: 0, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'space-between', gap: 2 },
+  counts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 8 },
+  stat: { flexGrow: 1, flexBasis: '29%', minWidth: 0, padding: 8, borderRadius: 12, alignItems: 'center', gap: 2 },
   count: { width: '100%', textAlign: 'center', fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
   statLabel: { fontSize: 11, textAlign: 'center', width: '100%' },
-  annual: { borderRadius: 12, padding: 8, minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  annual: { borderRadius: 12, padding: 10, gap: 8 },
+  annualHeading: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  record: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  recordLabel: { flex: 1, fontSize: 12 },
+  recordValue: { flex: 1, textAlign: 'right', fontSize: 13, fontWeight: '700' },
+  speciesFilters: { gap: 8, paddingVertical: 4 },
   annualCopy: { flex: 1, minWidth: 0, gap: 2 },
   annualTitle: { fontSize: 14, fontWeight: '700' },
   total: { fontSize: 11 },
-  chart: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'flex-end', gap: 2 },
-  chartColumn: { flex: 1, minWidth: 0, alignItems: 'stretch' },
-  chartBar: { borderRadius: 2, marginHorizontal: 1 },
-  monthLabel: { fontSize: 8, lineHeight: 12, textAlign: 'center', borderRadius: 3, marginTop: 2, includeFontPadding: false },
   tabs: { flexDirection: 'row' },
   tab: { flex: 1, minWidth: 0, justifyContent: 'center', minHeight: 44, borderBottomWidth: 2, paddingHorizontal: 4 },
   tabLabel: { textAlign: 'center', fontSize: 14, fontWeight: '700' },

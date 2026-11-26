@@ -1,6 +1,8 @@
 export type OutingType = 'fishing' | 'hike' | 'both';
 export type Point = { latitude: number; longitude: number };
 export type Photo = { uri: string } | { sample: 'lake' | 'trail' };
+export const catchWeatherOptions = ['sunny', 'cloudy', 'rain', 'wind'] as const;
+export type CatchWeather = typeof catchWeatherOptions[number];
 export type Catch = {
   species: string;
   size?: number;
@@ -8,7 +10,10 @@ export type Catch = {
   bait: string;
   time: string;
   photo?: Photo;
+  weather?: CatchWeather;
+  released?: boolean;
 };
+export type CatchSummary = Pick<Catch, 'species' | 'size'>;
 export type RouteData = { distance?: number; duration?: number; ascent?: number };
 export type Comment = { id: string; text: string };
 export type Outing = {
