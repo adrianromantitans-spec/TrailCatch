@@ -151,7 +151,7 @@ export async function discoverMap(bounds: Bounds, kind: DiscoveryKind, signal: A
   const query = `[out:json][timeout:8];${selection}`;
   const [south, west, north, east] = bounds;
   // The Geofabrik Europe extract covers the app's default region and most of Europe.
-  const endpoints = south >= 35 && west >= -25 && north <= 72 && east <= 45
+  const endpoints = south >= 35 && west >= -32 && north <= 72 && east <= 45
     ? ['https://ovp.dresel.systems/api/interpreter', ...globalEndpoints] : globalEndpoints;
   const params = new URLSearchParams({ data: query });
   for (const endpoint of endpoints) {

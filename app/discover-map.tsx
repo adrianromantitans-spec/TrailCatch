@@ -9,11 +9,12 @@ import { Button, Header, IconButton, side, styles, usePalette } from '../compone
 import type { Point } from '../db/model';
 import { t } from '../i18n';
 import { europeanFishingAreas } from '../services/europeanFishingAreas';
+import { europeanTrailAreas } from '../services/europeanTrailAreas';
 import { discoverMap, discoveryBounds, focusDiscoveryRegion, trailNearPoint } from '../services/mapDiscovery';
 import type { Bounds, DiscoveryFeature, DiscoveryKind, TrailCursor } from '../services/mapDiscovery';
 
 const initialRegion = { ...initialMapRegion, latitudeDelta: 0.075, longitudeDelta: 0.075 };
-const europeRegion = { latitude: 52, longitude: 10, latitudeDelta: 42, longitudeDelta: 66 };
+const europeRegion = { latitude: 52, longitude: 8, latitudeDelta: 42, longitudeDelta: 74 };
 
 export default function DiscoverMap() {
   const router = useRouter();
@@ -33,16 +34,16 @@ export default function DiscoverMap() {
   const searchRegion = focusDiscoveryRegion(region);
   const bounds = discoveryBounds(searchRegion);
   const pinColor = kind === 'trails' ? '#255A46' : '#28687C';
-  const catalog = kind === 'fishing' ? europeanFishingAreas.filter(({ point }) =>
+  const catalog = (kind === 'fishing' ? europeanFishingAreas : europeanTrailAreas).filter(({ point }) =>
     Math.abs(point.latitude - region.latitude) <= region.latitudeDelta / 2 &&
-    Math.abs(point.longitude - region.longitude) <= region.longitudeDelta / 2) : [];
+    Math.abs(point.longitude - region.longitude) <= region.longitudeDelta / 2);
   const features = [...catalog, ...items];
   const guide = selected?.guide;
   const nextPage = continuation && kind === 'trails' && searchRegion === region &&
     region.latitude >= continuation.bounds[0] && region.latitude <= continuation.bounds[2] &&
     region.longitude >= continuation.bounds[1] && region.longitude <= continuation.bounds[3] ? continuation : undefined;
   const markerFeatures = kind === 'trails' ? features.filter((feature) =>
-    (feature.name && feature.id.startsWith('relation/')) || feature.id === selected?.id) : features;
+    feature.guide || (feature.name && feature.id.startsWith('relation/')) || feature.id === selected?.id) : features;
   const featureName = (feature: DiscoveryFeature) => feature.name || (kind === 'trails' ? t.unnamedTrail : t.fishingPlace);
 
   useEffect(() => {
@@ -60,10 +61,11 @@ export default function DiscoverMap() {
     setStatus('idle');
   }
 
-  async function search(append = false) {
-    const pageBounds = append ? nextPage?.bounds : bounds;
+  async function search(append = false, target?: MapRegion) {
+    const pageBounds = target ? discoveryBounds(target) : append ? nextPage?.bounds : bounds;
     if (!pageBounds) return;
-    if (!append && searchRegion !== region) setDestination(searchRegion);
+    if (target) setDestination(target);
+    else if (!append && searchRegion !== region) setDestination(searchRegion);
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
@@ -118,7 +120,7 @@ export default function DiscoverMap() {
   }
 
   const summary = status === 'loading' ? t.loading : status === 'error' ? t.discoverMapError
-    : catalog.length && status !== 'ready' ? t.europeFishingHint
+    : catalog.length && status !== 'ready' ? (kind === 'trails' ? t.europeTrailHint : t.europeFishingHint)
     : searchRegion !== region ? t.zoomDiscovery : status === 'empty' ? (kind === 'trails' ? t.noMappedTrails : t.noMappedFishing)
       : status === 'ready' ? (kind === 'trails' ? t.selectTrailLine : t.selectMapFeature) : '';
 
@@ -129,7 +131,7 @@ export default function DiscoverMap() {
         selected={kind === 'trails'} onPress={() => switchKind('trails')} />
       <Button label={t.mappedFishing} icon="fish-outline" stretch singleLine
         selected={kind === 'fishing'} onPress={() => switchKind('fishing')} />
-      {kind === 'fishing' && <Button label={t.europeFishing} icon="globe-outline" stretch singleLine onPress={showEurope} />}
+      <Button label={t.europeMap} icon="globe-outline" stretch singleLine onPress={showEurope} />
     </View>
     <MapView initialRegion={initialRegion} movedTo={destination} onViewport={setRegion} externalAttribution
       pins={markerFeatures.map((feature) => ({ id: feature.id, ...(selected?.id === feature.id ? selected.point : feature.point), title: featureName(feature),
@@ -149,15 +151,18 @@ export default function DiscoverMap() {
           <IconButton name="close-outline" label={t.closeMapFeature} onPress={() => setSelected(undefined)} />
         </View>
         {guide && <Text style={{ color: p.muted }}>{guide.reference} · {guide.country} · {guide.authority}</Text>}
-        <Text style={{ color: p.muted }}>{guide ? t.fishingGuideWarning : kind === 'trails' ? t.trailAccessWarning
+        <Text style={{ color: p.muted }}>{guide ? (kind === 'trails' ? t.trailGuideWarning : t.fishingGuideWarning) : kind === 'trails' ? t.trailAccessWarning
           : selected.requiresPermit ? t.fishingMapPermit : t.fishingMapWarning}</Text>
         <View style={styles.columns}>
           <Button primary stretch label={selected.isArea ? t.viewMapArea : kind === 'trails' ? t.directionsToTrail : t.directions}
             icon="navigate-outline" onPress={() => openDirections(selected)} />
-          {guide && <Button stretch label={t.fishingOfficialInfo} icon="open-outline" onPress={() => {
+          {guide && <Button stretch label={kind === 'trails' ? t.trailOfficialInfo : t.fishingOfficialInfo} icon="open-outline" onPress={() => {
             void Linking.openURL(guide.url).catch(() => Alert.alert(t.actionError));
           }} />}
         </View>
+        {guide && kind === 'trails' && <Button label={t.trailsAroundHere} icon="footsteps-outline" onPress={() => {
+          void search(false, { ...initialRegion, ...selected.point });
+        }} />}
       </> : <>
         {!!summary && <Text accessibilityLiveRegion="polite" style={{ color: status === 'error' ? p.danger : p.muted }}>{summary}</Text>}
         <View style={styles.columns}>
