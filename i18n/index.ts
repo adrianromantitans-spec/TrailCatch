@@ -40,6 +40,9 @@ const es = {
   noSavedOutings: 'Aún no hay salidas guardadas.', savedPosts: 'Publicaciones guardadas',
   saved: 'Guardados', all: 'Todas', searchPlaceholder: 'Buscar salidas por título o notas',
   standard: 'Estándar', satellite: 'Satélite', terrain: 'Relieve', osm: '© OpenStreetMap contributors',
+  europeFishing: 'Europa', europeFishingHint: 'Toca un marcador verde para consultar la zona y su fuente.',
+  fishingOfficialInfo: 'Permisos y normas',
+  fishingGuideWarning: 'Consulta en la fuente los tramos habilitados, los accesos y los permisos vigentes antes de ir.',
   discoverMap: 'Explorar mapa', mappedTrails: 'Senderos', mappedFishing: 'Pesca', unnamedTrail: 'Sendero',
   fishingPlace: 'Lugar de pesca', searchMapArea: 'Buscar en esta zona', zoomDiscovery: 'El mapa se acercará para buscar alrededor del centro.',
   discoverMapError: 'No se pudieron consultar los datos del mapa. Vuelve a intentarlo.',
@@ -139,6 +142,8 @@ const es = {
 const translations: Record<Locale, Partial<typeof es>> = {
   es,
   en: {
+    europeFishing: 'Europe', europeFishingHint: 'Tap a green marker for the area and its source.', fishingOfficialInfo: 'Permits and rules',
+    fishingGuideWarning: 'Check the source for permitted waters, access points and current rules before travelling.',
     openCommentCount: (count: number) => count === 1 ? 'View comment' : `View all ${count} comments`,
     closeComments: 'Close comments', commentOptions: 'Comment options', hideReplies: 'Hide replies',
     noReplies: 'No replies yet.', moreReplies: 'View more replies', cancelReply: 'Cancel reply',
@@ -179,6 +184,8 @@ const translations: Record<Locale, Partial<typeof es>> = {
     mapLocationDenied: 'Allow location access to centre the map near you.',
   },
   ro: {
+    europeFishing: 'Europa', europeFishingHint: 'Atinge un marcaj verde pentru detalii și sursă.', fishingOfficialInfo: 'Permise și reguli',
+    fishingGuideWarning: 'Verifică în sursă zonele permise, căile de acces și permisele înainte de plecare.',
     openCommentCount: (count: number) => count === 1 ? 'Vezi comentariul' : `Vezi comentariile (${count})`,
     closeComments: 'Închide comentariile', commentOptions: 'Opțiuni pentru comentariu', hideReplies: 'Ascunde răspunsurile',
     noReplies: 'Încă nu există răspunsuri.', moreReplies: 'Vezi mai multe răspunsuri', cancelReply: 'Anulează răspunsul',

@@ -8,10 +8,12 @@ import type { MapRegion } from '../components/MapView';
 import { Button, Header, IconButton, side, styles, usePalette } from '../components/ui';
 import type { Point } from '../db/model';
 import { t } from '../i18n';
+import { europeanFishingAreas } from '../services/europeanFishingAreas';
 import { discoverMap, discoveryBounds, focusDiscoveryRegion } from '../services/mapDiscovery';
 import type { DiscoveryFeature, DiscoveryKind } from '../services/mapDiscovery';
 
 const initialRegion = { ...initialMapRegion, latitudeDelta: 0.075, longitudeDelta: 0.075 };
+const europeRegion = { latitude: 52, longitude: 10, latitudeDelta: 42, longitudeDelta: 66 };
 
 export default function DiscoverMap() {
   const router = useRouter();
@@ -29,6 +31,11 @@ export default function DiscoverMap() {
   const searchRegion = focusDiscoveryRegion(region);
   const bounds = discoveryBounds(searchRegion);
   const pinColor = kind === 'trails' ? '#255A46' : '#28687C';
+  const catalog = kind === 'fishing' ? europeanFishingAreas.filter(({ point }) =>
+    Math.abs(point.latitude - region.latitude) <= region.latitudeDelta / 2 &&
+    Math.abs(point.longitude - region.longitude) <= region.longitudeDelta / 2) : [];
+  const features = [...catalog, ...items];
+  const guide = selected?.guide;
   const featureName = (feature: DiscoveryFeature) => feature.name || (kind === 'trails' ? t.unnamedTrail : t.fishingPlace);
 
   useEffect(() => {
@@ -80,13 +87,23 @@ export default function DiscoverMap() {
   }
 
   function openDirections(feature: DiscoveryFeature) {
-    const point = encodeURIComponent(`${feature.point.latitude},${feature.point.longitude}`);
+    const point = encodeURIComponent(feature.guide && feature.isArea ? `${feature.guide.reference}, ${feature.guide.country}`
+      : `${feature.point.latitude},${feature.point.longitude}`);
     const url = feature.isArea ? `https://www.google.com/maps/search/?api=1&query=${point}`
       : `https://www.google.com/maps/dir/?api=1&destination=${point}${kind === 'trails' ? '&travelmode=walking' : ''}`;
     void Linking.openURL(url).catch(() => Alert.alert(t.actionError));
   }
 
+  function showEurope() {
+    request.current?.abort();
+    setItems([]);
+    setSelected(undefined);
+    setStatus('idle');
+    setDestination({ ...europeRegion });
+  }
+
   const summary = status === 'loading' ? t.loading : status === 'error' ? t.discoverMapError
+    : catalog.length && status !== 'ready' ? t.europeFishingHint
     : searchRegion !== region ? t.zoomDiscovery : status === 'empty' ? (kind === 'trails' ? t.noMappedTrails : t.noMappedFishing)
       : status === 'ready' ? t.selectMapFeature : '';
 
@@ -97,12 +114,14 @@ export default function DiscoverMap() {
         selected={kind === 'trails'} onPress={() => switchKind('trails')} />
       <Button label={t.mappedFishing} icon="fish-outline" stretch singleLine
         selected={kind === 'fishing'} onPress={() => switchKind('fishing')} />
+      {kind === 'fishing' && <Button label={t.europeFishing} icon="globe-outline" stretch singleLine onPress={showEurope} />}
     </View>
     <MapView initialRegion={initialRegion} movedTo={destination} onViewport={setRegion} externalAttribution
-      pins={items.map((feature) => ({ id: feature.id, ...feature.point, title: featureName(feature), color: pinColor }))}
+      pins={features.map((feature) => ({ id: feature.id, ...feature.point, title: featureName(feature),
+        color: feature.guide ? '#255A46' : pinColor }))}
       lines={items.flatMap((feature) => feature.lines.map((coordinates, index) => ({
         id: `${feature.id}-${index}`, coordinates, color: '#258457', selected: selected?.id === feature.id,
-      })))} onSelect={(id) => setSelected(items.find((feature) => feature.id === id))} />
+      })))} onSelect={(id) => setSelected(features.find((feature) => feature.id === id))} />
     <View style={[layout.panel, { paddingBottom: Math.max(bottom, 12), backgroundColor: p.surface, borderColor: p.line }]}>
       {selected ? <>
         <View style={styles.columns}>
@@ -111,10 +130,16 @@ export default function DiscoverMap() {
           </Text>
           <IconButton name="close-outline" label={t.closeMapFeature} onPress={() => setSelected(undefined)} />
         </View>
-        <Text style={{ color: p.muted }}>{kind === 'trails' ? t.trailAccessWarning
+        {guide && <Text style={{ color: p.muted }}>{guide.reference} · {guide.country} · {guide.authority}</Text>}
+        <Text style={{ color: p.muted }}>{guide ? t.fishingGuideWarning : kind === 'trails' ? t.trailAccessWarning
           : selected.requiresPermit ? t.fishingMapPermit : t.fishingMapWarning}</Text>
-        <Button primary label={selected.isArea ? t.viewMapArea : kind === 'trails' ? t.directionsToTrail : t.directions}
-          icon="navigate-outline" onPress={() => openDirections(selected)} />
+        <View style={styles.columns}>
+          <Button primary stretch label={selected.isArea ? t.viewMapArea : kind === 'trails' ? t.directionsToTrail : t.directions}
+            icon="navigate-outline" onPress={() => openDirections(selected)} />
+          {guide && <Button stretch label={t.fishingOfficialInfo} icon="open-outline" onPress={() => {
+            void Linking.openURL(guide.url).catch(() => Alert.alert(t.actionError));
+          }} />}
+        </View>
       </> : <>
         {!!summary && <Text accessibilityLiveRegion="polite" style={{ color: status === 'error' ? p.danger : p.muted }}>{summary}</Text>}
         <View style={styles.columns}>

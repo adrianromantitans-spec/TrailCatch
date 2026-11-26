@@ -8,6 +8,7 @@ export type DiscoveryFeature = {
   lines: Point[][];
   isArea: boolean;
   requiresPermit: boolean;
+  guide?: { country: string; reference: string; authority: string; url: string };
 };
 
 type Bounds = [south: number, west: number, north: number, east: number];
