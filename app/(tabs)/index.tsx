@@ -1,14 +1,13 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, View } from 'react-native';
-import type { FlatList } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 import { FeedCard, FeedSkeleton } from '../../components/FeedCard';
-import { CompactHomeTabBar, TabContent, useHomeTabClearance, useHomeTabScroll } from '../../components/GlassTabBar';
+import { TabContent, useHomeTabScroll, useTabClearance } from '../../components/GlassTabBar';
 import { HomeHeader, homeHeaderHeight, homeModes } from '../../components/HomeHeader';
 import type { HomeMode } from '../../components/HomeHeader';
 import { SocialFeed } from '../../components/SocialFeed';
@@ -19,7 +18,7 @@ import { useOutingPages } from '../../db/useDiary';
 import { t } from '../../i18n';
 import { backend, useSession } from '../../services/backend';
 import { profilesFor } from '../../services/social';
-import type { Profile, SocialPost } from '../../services/social';
+import type { Profile } from '../../services/social';
 
 export default function Feed() {
   const router = useRouter();
@@ -46,12 +45,11 @@ export default function Feed() {
     }, check).subscribe();
     return () => { active = false; void client.removeChannel(channel); };
   }, [viewer]));
-  const bottom = useHomeTabClearance();
+  const tabClearance = useTabClearance();
   const [mode, setMode] = useState<HomeMode>(backend && !guest ? 'following' : 'local');
-  const diaryList = useRef<FlatList<Outing>>(null);
-  const socialList = useRef<FlatList<SocialPost>>(null);
   const headerHeight = homeHeaderHeight(!!backend);
-  const { onScroll, compact, headerOffset } = useHomeTabScroll(headerHeight);
+  const { onScroll, compact, headerOffset, nativeBar } = useHomeTabScroll(headerHeight);
+  const bottom = nativeBar ? 16 : tabClearance;
   useFocusEffect(useCallback(() => () => { compact?.set(false); headerOffset.set(0); }, [compact, headerOffset]));
   const selectMode = useCallback((next: HomeMode) => {
     if (next === mode) return;
@@ -88,10 +86,10 @@ export default function Feed() {
     <View style={[styles.screen, { paddingTop: top, backgroundColor: p.surface }]}>
       <GestureDetector gesture={swipe}>
         <View collapsable={false} style={[styles.screen, { overflow: 'hidden' }]}>
-          {mode !== 'local' ? <SocialFeed key={mode} mode={mode} bottom={bottom} top={headerHeight} listRef={socialList}
+          {mode !== 'local' ? <SocialFeed key={mode} mode={mode} bottom={bottom} top={headerHeight} nativeBar={nativeBar}
             onScroll={onScroll} feedSwipe={swipe} /> :
-            <Animated.FlatList ref={diaryList} onScroll={onScroll} scrollEventThrottle={16} keyExtractor={(item) => item.id} data={items ?? []}
-              style={styles.screen} contentInsetAdjustmentBehavior="never" progressViewOffset={headerHeight}
+            <Animated.FlatList onScroll={onScroll} scrollEventThrottle={16} keyExtractor={(item) => item.id} data={items ?? []}
+              style={styles.screen} contentInsetAdjustmentBehavior={nativeBar ? 'automatic' : 'never'} progressViewOffset={headerHeight}
               contentContainerStyle={{ paddingTop: headerHeight, paddingBottom: bottom }}
               refreshing={refreshing} onRefresh={() => void load(true)} onEndReached={() => void load(false)}
               ListEmptyComponent={error ? undefined : items ? <Notice message={t.empty} /> : <FeedSkeleton />}
@@ -105,7 +103,6 @@ export default function Feed() {
             onNotifications={() => router.push('/notifications')} onSelect={selectMode} />
         </View>
       </GestureDetector>
-      <CompactHomeTabBar onHomePress={() => (mode === 'local' ? diaryList.current : socialList.current)?.scrollToOffset({ offset: 0 })} />
     </View>
   </TabContent>;
 }
