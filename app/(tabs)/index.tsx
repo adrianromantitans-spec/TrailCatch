@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,6 +49,7 @@ export default function Feed() {
   const [mode, setMode] = useState<HomeMode>(backend && !guest ? 'following' : 'local');
   const headerHeight = homeHeaderHeight(!!backend);
   const { onScroll, compact, headerOffset, nativeBar } = useHomeTabScroll(headerHeight);
+  const listTop = headerHeight + (nativeBar ? 0 : top);
   const bottom = nativeBar ? 16 : tabClearance;
   useFocusEffect(useCallback(() => () => { compact?.set(false); headerOffset.set(0); }, [compact, headerOffset]));
   const selectMode = useCallback((next: HomeMode) => {
@@ -83,26 +84,33 @@ export default function Feed() {
   }
 
   return <TabContent name="index">
-    <View style={[styles.screen, { paddingTop: top, backgroundColor: p.surface }]}>
-      <GestureDetector gesture={swipe}>
-        <View collapsable={false} style={[styles.screen, { overflow: 'hidden' }]}>
-          {mode !== 'local' ? <SocialFeed key={mode} mode={mode} bottom={bottom} top={headerHeight} nativeBar={nativeBar}
-            onScroll={onScroll} feedSwipe={swipe} /> :
-            <Animated.FlatList onScroll={onScroll} scrollEventThrottle={16} keyExtractor={(item) => item.id} data={items ?? []}
-              style={styles.screen} contentInsetAdjustmentBehavior={nativeBar ? 'automatic' : 'never'} progressViewOffset={headerHeight}
-              contentContainerStyle={{ paddingTop: headerHeight, paddingBottom: bottom }}
-              refreshing={refreshing} onRefresh={() => void load(true)} onEndReached={() => void load(false)}
-              ListEmptyComponent={error ? undefined : items ? <Notice message={t.empty} /> : <FeedSkeleton />}
-              ListFooterComponent={error ? <Notice message={t.loadError} retry={() => void load(true)} /> : undefined}
-              renderItem={({ item }) => <FeedCard item={item} author={currentAuthor}
-                onLike={() => void react(item.id, (old) => ({ ...old, liked: !old.liked, likes: old.likes + (old.liked ? -1 : 1) }))}
-                onSave={() => void react(item.id, (old) => ({ ...old, saved: !old.saved }))}
-                onComment={() => router.push({ pathname: '/outing/[id]', params: { id: item.id, comments: '1' } })} />} />}
+    <GestureDetector gesture={swipe}>
+      <View collapsable={false} style={[styles.screen, { backgroundColor: p.surface }]}>
+        {/* UIKit follows the first scroll view. Keep it full-height and put the header above it. */}
+        {mode !== 'local' ? <SocialFeed key={mode} mode={mode} bottom={bottom} top={listTop} nativeBar={nativeBar}
+          onScroll={onScroll} feedSwipe={swipe} /> :
+          <Animated.FlatList onScroll={onScroll} scrollEventThrottle={16} keyExtractor={(item) => item.id} data={items ?? []}
+            style={styles.screen} contentInsetAdjustmentBehavior={nativeBar ? 'automatic' : 'never'} progressViewOffset={listTop}
+            contentContainerStyle={{ paddingTop: listTop, paddingBottom: bottom }}
+            refreshing={refreshing} onRefresh={() => void load(true)} onEndReached={() => void load(false)}
+            ListEmptyComponent={error ? undefined : items ? <Notice message={t.empty} /> : <FeedSkeleton />}
+            ListFooterComponent={error ? <Notice message={t.loadError} retry={() => void load(true)} /> : undefined}
+            renderItem={({ item }) => <FeedCard item={item} author={currentAuthor}
+              onLike={() => void react(item.id, (old) => ({ ...old, liked: !old.liked, likes: old.likes + (old.liked ? -1 : 1) }))}
+              onSave={() => void react(item.id, (old) => ({ ...old, saved: !old.saved }))}
+              onComment={() => router.push({ pathname: '/outing/[id]', params: { id: item.id, comments: '1' } })} />} />}
+        <View pointerEvents="none" style={[layout.topCover, { height: top, backgroundColor: p.surface }]} />
+        <View pointerEvents="box-none" style={[layout.headerClip, { top, height: headerHeight }]}>
           <HomeHeader mode={mode} hasTabs={!!backend} avatarUrl={currentAuthor?.avatar_url} unread={unread}
             offset={headerOffset} onProfile={() => router.navigate('/profile')}
             onNotifications={() => router.push('/notifications')} onSelect={selectMode} />
         </View>
-      </GestureDetector>
-    </View>
+      </View>
+    </GestureDetector>
   </TabContent>;
 }
+
+const layout = StyleSheet.create({
+  topCover: { position: 'absolute', top: 0, left: 0, right: 0 },
+  headerClip: { position: 'absolute', left: 0, right: 0, overflow: 'hidden' },
+});
