@@ -9,6 +9,10 @@ import { FeedActions } from './FeedActions';
 import { Avatar, usePalette } from './ui';
 
 type FeedAuthor = Pick<Profile, 'display_name' | 'avatar_url'>;
+const cardSide = 16;
+const avatarGap = 6;
+export const feedCardAvatarSize = 32;
+export const feedCardHorizontalSpace = cardSide * 2 + feedCardAvatarSize + avatarGap;
 
 export function FeedCard({ item, author, onLike, onSave, onComment }: {
   item: Outing; author?: FeedAuthor; onLike: () => void; onSave: () => void; onComment: () => void;
@@ -21,7 +25,7 @@ export function FeedCard({ item, author, onLike, onSave, onComment }: {
     <Link href={destination} asChild>
       <Pressable accessibilityLabel={item.title} hitSlop={4}>
         {!item.sample && author?.avatar_url ? <Image source={author.avatar_url} style={feedCardLayout.avatar} /> :
-          <Avatar sample={item.sample} size={40} />}
+          <Avatar sample={item.sample} size={feedCardAvatarSize} />}
       </Pressable>
     </Link>
     <View style={feedCardLayout.body}>
@@ -62,9 +66,9 @@ export function FeedSkeleton() {
 }
 
 export const feedCardLayout = StyleSheet.create({
-  card: { paddingHorizontal: 16, paddingVertical: 6, flexDirection: 'row', gap: 12,
+  card: { paddingHorizontal: cardSide, paddingVertical: 6, flexDirection: 'row', gap: avatarGap,
     borderBottomWidth: StyleSheet.hairlineWidth },
-  avatar: { width: 40, height: 40, borderRadius: 20 },
+  avatar: { width: feedCardAvatarSize, height: feedCardAvatarSize, borderRadius: feedCardAvatarSize / 2 },
   body: { flex: 1, minWidth: 0, gap: 12 },
   identity: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8, rowGap: 2 },
   name: { fontWeight: '700', fontSize: 15, flexShrink: 1 },

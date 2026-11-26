@@ -9,7 +9,7 @@ import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSequence,
 import { relativeDate, t } from '../i18n';
 import type { SocialPost } from '../services/social';
 import { FeedActions } from './FeedActions';
-import { feedCardLayout } from './FeedCard';
+import { feedCardAvatarSize, feedCardHorizontalSpace, feedCardLayout } from './FeedCard';
 import { Avatar, Button, onBrand, styles, usePalette } from './ui';
 
 export function SocialPostCard({ post, viewer, onLike, onSave, onFollow, feedSwipe }: {
@@ -22,7 +22,7 @@ export function SocialPostCard({ post, viewer, onLike, onSave, onFollow, feedSwi
   const [expanded, setExpanded] = useState(false);
   const [slide, setSlide] = useState(0);
   const [measuredWidth, setMeasuredWidth] = useState<number>();
-  const mediaWidth = Math.max(1, measuredWidth ?? width - 84);
+  const mediaWidth = Math.max(1, measuredWidth ?? width - feedCardHorizontalSpace);
   const lastTap = useRef(0);
   const heart = useSharedValue(0);
   const animation = useAnimatedStyle(() => ({ opacity: Math.min(1, heart.value), transform: [{ scale: heart.value }] }));
@@ -58,7 +58,7 @@ export function SocialPostCard({ post, viewer, onLike, onSave, onFollow, feedSwi
   return <View style={[feedCardLayout.card, { backgroundColor: p.surface, borderColor: p.line }]}>
     <Pressable accessibilityRole="button" accessibilityLabel={author} hitSlop={4}
       onPress={() => router.push({ pathname: '/user/[id]', params: { id: post.user_id } })}>
-      {post.author?.avatar_url ? <Image source={post.author.avatar_url} style={feedCardLayout.avatar} /> : <Avatar size={40} />}
+      {post.author?.avatar_url ? <Image source={post.author.avatar_url} style={feedCardLayout.avatar} /> : <Avatar size={feedCardAvatarSize} />}
     </Pressable>
     <View style={feedCardLayout.body} onLayout={({ nativeEvent }) => setMeasuredWidth(nativeEvent.layout.width)}>
       <View style={cardStyles.header}>
