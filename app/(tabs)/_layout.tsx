@@ -29,7 +29,7 @@ export default function TabsLayout() {
   if (useNativeBar) return (
     <GlassTargets nativeBar>
       <NativeTabs tintColor={p.accent} iconColor={{ default: p.muted, selected: p.accent }} minimizeBehavior="onScrollDown">
-        <NativeTabs.Trigger name="index" disableAutomaticContentInsets>
+        <NativeTabs.Trigger name="index">
           <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} />
           <NativeTabs.Trigger.Label>{t.home}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>

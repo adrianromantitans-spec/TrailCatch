@@ -64,19 +64,22 @@ export function TabContent({ name, children }: PropsWithChildren<{ name: TabName
 type ScrollContext = { y?: number; travel?: number };
 
 export function useHomeTabScroll(headerHeight = 0) {
-  const compact = useContext(TargetContext)?.homeCompact;
+  const context = useContext(TargetContext);
+  const compact = context?.homeCompact;
+  const nativeBar = context?.nativeBar ?? false;
   const headerOffset = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler<ScrollContext>({
     onBeginDrag(event, context) {
-      context.y = Math.max(0, event.contentOffset.y);
+      context.y = Math.max(0, event.contentOffset.y + (event.contentInset?.top ?? 0));
       context.travel = 0;
     },
     onScroll(event, context) {
-      const bottom = Math.max(0, event.contentSize.height - event.layoutMeasurement.height);
-      const y = Math.max(0, Math.min(bottom, event.contentOffset.y));
+      const topInset = event.contentInset?.top ?? 0;
+      const bottom = Math.max(0, event.contentSize.height + topInset + (event.contentInset?.bottom ?? 0) - event.layoutMeasurement.height);
+      const y = Math.max(0, Math.min(bottom, event.contentOffset.y + topInset));
       const delta = y - (context.y ?? y);
       context.y = y;
-      if (y <= 12) {
+      if (y <= 6) {
         context.travel = 0;
         compact?.set(false);
         headerOffset.set(0);
@@ -87,11 +90,11 @@ export function useHomeTabScroll(headerHeight = 0) {
       if (!compact) return;
       const previous = context.travel ?? 0;
       context.travel = Math.sign(previous) === Math.sign(delta) ? previous + delta : delta;
-      if (!compact.get() && y >= 64 && context.travel >= 22) compact.set(true);
-      else if (compact.get() && context.travel <= -18) compact.set(false);
+      if (!compact.get() && y >= 24 && context.travel >= 12) compact.set(true);
+      else if (compact.get() && context.travel <= -10) compact.set(false);
     },
   });
-  return { onScroll, compact, headerOffset };
+  return { onScroll, compact, headerOffset, nativeBar };
 }
 
 type Props = BottomTabBarProps & { onCreate: () => void };

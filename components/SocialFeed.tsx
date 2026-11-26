@@ -14,8 +14,8 @@ import { FeedSkeleton } from './FeedCard';
 import { SocialPostCard } from './SocialPostCard';
 import { Button, Notice, styles } from './ui';
 
-export function SocialFeed({ mode, bottom, top, onScroll, feedSwipe }: {
-  mode: FeedMode; bottom: number; top: number; onScroll?: FlatListProps<SocialPost>['onScroll'];
+export function SocialFeed({ mode, bottom, top, nativeBar, onScroll, feedSwipe }: {
+  mode: FeedMode; bottom: number; top: number; nativeBar: boolean; onScroll?: FlatListProps<SocialPost>['onScroll'];
   feedSwipe?: ReturnType<typeof Gesture.Pan>;
 }) {
   const router = useRouter();
@@ -88,21 +88,23 @@ export function SocialFeed({ mode, bottom, top, onScroll, feedSwipe }: {
     } finally { mutations.current.delete(lock); }
   }
 
-  if (mode === 'following' && !viewer) return <View style={[styles.content, { marginTop: top }]}>
+  const needsSignIn = mode === 'following' && !viewer;
+  const needsLocation = mode === 'nearby' && !point;
+  const empty = needsSignIn ? <View style={styles.content}>
     <Notice message={t.signInRequired} /><Button label={t.signIn} onPress={() => router.push('/account')} />
-  </View>;
-  if (mode === 'nearby' && !point) return <View style={[styles.content, { marginTop: top }]}>
+  </View> : needsLocation ? <View style={styles.content}>
     {locationError ? <Notice message={locationError} /> : null}
     <Button label={locating ? t.loading : t.myLocation} disabled={locating} onPress={() => void locate()} icon="locate-outline" />
-  </View>;
+  </View> : failed ? undefined : posts ? <Notice message={t.noPosts} /> : <FeedSkeleton />;
 
-  return !posts && !failed ? <View style={{ paddingTop: top }}><FeedSkeleton /></View> : <Animated.FlatList onScroll={onScroll}
+  // Keep the vertical scroll view mounted while loading so the native tab bar can track it.
+  return <Animated.FlatList onScroll={onScroll}
     scrollEventThrottle={16} style={styles.screen} data={posts ?? []} keyExtractor={(item) => item.id}
     windowSize={5} initialNumToRender={3} maxToRenderPerBatch={5}
-    contentInsetAdjustmentBehavior="never" progressViewOffset={top}
+    contentInsetAdjustmentBehavior={nativeBar ? 'automatic' : 'never'} progressViewOffset={top}
     contentContainerStyle={{ paddingTop: top, paddingBottom: bottom }}
-    refreshing={refreshing} onRefresh={() => void load(true)} onEndReached={() => void load(false)}
-    ListEmptyComponent={failed ? undefined : <Notice message={t.noPosts} />}
+    refreshing={refreshing} onRefresh={needsSignIn || needsLocation ? undefined : () => void load(true)} onEndReached={() => void load(false)}
+    ListEmptyComponent={empty}
     ListFooterComponent={failed ? <Notice message={t.loadError} retry={() => void load(!posts?.length)} /> : undefined}
     renderItem={({ item }) => <SocialPostCard post={item} viewer={viewer} feedSwipe={feedSwipe}
       onLike={(value) => void mutate('likes', item, value)}

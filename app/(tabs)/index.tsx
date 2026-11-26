@@ -48,7 +48,8 @@ export default function Feed() {
   const tabClearance = useTabClearance();
   const [mode, setMode] = useState<HomeMode>(backend && !guest ? 'following' : 'local');
   const headerHeight = homeHeaderHeight(!!backend);
-  const { onScroll, compact, headerOffset } = useHomeTabScroll(headerHeight);
+  const { onScroll, compact, headerOffset, nativeBar } = useHomeTabScroll(headerHeight);
+  const bottom = nativeBar ? 16 : tabClearance;
   useFocusEffect(useCallback(() => () => { compact?.set(false); headerOffset.set(0); }, [compact, headerOffset]));
   const selectMode = useCallback((next: HomeMode) => {
     if (next === mode) return;
@@ -85,13 +86,13 @@ export default function Feed() {
     <View style={[styles.screen, { paddingTop: top, backgroundColor: p.surface }]}>
       <GestureDetector gesture={swipe}>
         <View collapsable={false} style={[styles.screen, { overflow: 'hidden' }]}>
-          {mode !== 'local' ? <SocialFeed key={mode} mode={mode} bottom={tabClearance} top={headerHeight}
-            onScroll={onScroll} feedSwipe={swipe} /> : !items && !error ? <View style={{ paddingTop: headerHeight }}><FeedSkeleton /></View> :
+          {mode !== 'local' ? <SocialFeed key={mode} mode={mode} bottom={bottom} top={headerHeight} nativeBar={nativeBar}
+            onScroll={onScroll} feedSwipe={swipe} /> :
             <Animated.FlatList onScroll={onScroll} scrollEventThrottle={16} keyExtractor={(item) => item.id} data={items ?? []}
-              style={styles.screen} contentInsetAdjustmentBehavior="never" progressViewOffset={headerHeight}
-              contentContainerStyle={{ paddingTop: headerHeight, paddingBottom: tabClearance }}
+              style={styles.screen} contentInsetAdjustmentBehavior={nativeBar ? 'automatic' : 'never'} progressViewOffset={headerHeight}
+              contentContainerStyle={{ paddingTop: headerHeight, paddingBottom: bottom }}
               refreshing={refreshing} onRefresh={() => void load(true)} onEndReached={() => void load(false)}
-              ListEmptyComponent={error ? undefined : <Notice message={t.empty} />}
+              ListEmptyComponent={error ? undefined : items ? <Notice message={t.empty} /> : <FeedSkeleton />}
               ListFooterComponent={error ? <Notice message={t.loadError} retry={() => void load(true)} /> : undefined}
               renderItem={({ item }) => <FeedCard item={item} author={currentAuthor}
                 onLike={() => void react(item.id, (old) => ({ ...old, liked: !old.liked, likes: old.likes + (old.liked ? -1 : 1) }))}
