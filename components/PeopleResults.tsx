@@ -1,13 +1,16 @@
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
+import type { ReactElement } from 'react';
 import { FlatList, Pressable, Text } from 'react-native';
 import { t } from '../i18n';
 import { searchProfiles } from '../services/social';
 import type { Profile } from '../services/social';
 import { Avatar, Notice, side, styles, usePalette } from './ui';
 
-export function PeopleResults({ query, bottom }: { query: string; bottom: number }) {
+export function PeopleResults({ query, bottom, emptyState, loadingState }: {
+  query: string; bottom: number; emptyState?: ReactElement; loadingState?: ReactElement;
+}) {
   const router = useRouter();
   const p = usePalette();
   const [result, setResult] = useState<{ query: string; revision: number; profiles?: Profile[] }>();
@@ -29,7 +32,7 @@ export function PeopleResults({ query, bottom }: { query: string; bottom: number
     contentInsetAdjustmentBehavior="never" keyboardShouldPersistTaps="handled"
     ListEmptyComponent={current && !current.profiles ? <Notice message={t.loadError} retry={() => {
       setResult(undefined); setRetry((value) => value + 1);
-    }} /> : <Notice message={current ? t.noPeopleFound : t.loading} loading={!current} />}
+    }} /> : (current ? emptyState : loadingState) ?? <Notice message={current ? t.noPeopleFound : t.loading} loading={!current} />}
     renderItem={({ item }) => <Pressable style={[styles.row, { minHeight: 44, paddingHorizontal: side / 2 }]}
       accessibilityRole="button" onPress={() => router.push({ pathname: '/user/[id]', params: { id: item.id } })}>
       {item.avatar_url ? <Image source={item.avatar_url} style={{ width: 38, height: 38, borderRadius: 19 }} /> : <Avatar />}

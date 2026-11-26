@@ -5,31 +5,36 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../i18n';
 import { Avatar, usePalette } from './ui';
 
 export const feedTabHeight = 48;
+export const feedHeaderHeight = 56;
 
-export function FeedHeader({ title, avatarUrl, onProfile, action, height = 48, controlSize = 44 }: {
-  title: string; avatarUrl?: string | null; onProfile: () => void; action?: ReactNode;
-  height?: number; controlSize?: number;
+export function FeedHeader({ title, avatarUrl, onProfile, action, leading, align = 'center', safeTop = false, controlSize = 44 }: {
+  title: string; avatarUrl?: string | null; onProfile?: () => void; action?: ReactNode; leading?: ReactNode;
+  align?: 'left' | 'center'; safeTop?: boolean; controlSize?: number;
 }) {
   const p = usePalette();
+  const { top } = useSafeAreaInsets();
   const [loaded] = useFonts({ Sora_700Bold });
   const [failedAvatar, setFailedAvatar] = useState<string>();
   const control = { width: controlSize, height: controlSize };
 
-  return <View style={[layout.top, { height, borderColor: p.line }]}>
-    <Pressable cssInterop={false} accessibilityRole="button" accessibilityLabel={t.profile} onPress={onProfile}
-      style={({ pressed }) => [layout.profile, control, { opacity: pressed ? 0.55 : 1 }]}>
-      {avatarUrl && avatarUrl !== failedAvatar ? <Image source={avatarUrl} recyclingKey={avatarUrl} style={layout.avatar}
-        onError={() => setFailedAvatar(avatarUrl)} /> : <Avatar size={32} />}
-    </Pressable>
-    <View pointerEvents="none" style={layout.center}>
-      <Text accessibilityRole="header" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}
-        style={[layout.wordmark, { color: p.accent }, loaded && layout.sora]}>{title}</Text>
+  return <View style={{ paddingTop: safeTop ? top : 0, backgroundColor: p.surface }}>
+    <View style={[layout.top, { borderColor: p.line }]}>
+      {onProfile ? <Pressable cssInterop={false} accessibilityRole="button" accessibilityLabel={t.profile} onPress={onProfile}
+        style={({ pressed }) => [layout.profile, control, { opacity: pressed ? 0.55 : 1 }]}>
+        {avatarUrl && avatarUrl !== failedAvatar ? <Image source={avatarUrl} recyclingKey={avatarUrl} style={layout.avatar}
+          onError={() => setFailedAvatar(avatarUrl)} /> : <Avatar size={32} />}
+      </Pressable> : leading ?? (align === 'center' && <View style={control} />)}
+      <View pointerEvents="none" style={layout.center}>
+        <Text accessibilityRole="header" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}
+          style={[layout.wordmark, { color: p.accent, textAlign: align }, loaded && layout.sora]}>{title}</Text>
+      </View>
+      {(action || align === 'center') && <View style={[layout.action, align === 'center' ? control : layout.trailing]}>{action}</View>}
     </View>
-    <View style={[layout.action, control]}>{action}</View>
   </View>;
 }
 
@@ -60,12 +65,13 @@ export function FeedTabs<T extends string>({ items, labels, selected, onSelect, 
 }
 
 const layout = StyleSheet.create({
-  top: { paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth },
+  top: { height: feedHeaderHeight, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth },
   center: { flex: 1, minWidth: 0, justifyContent: 'center' },
-  wordmark: { fontSize: 24, letterSpacing: -0.5, fontWeight: '700', textAlign: 'center' },
+  wordmark: { fontSize: 24, letterSpacing: -0.5, fontWeight: '700' },
   sora: { fontFamily: 'Sora_700Bold', fontWeight: 'normal' },
   profile: { justifyContent: 'center', alignItems: 'flex-start' },
   action: { justifyContent: 'center', alignItems: 'flex-end' },
+  trailing: { maxWidth: '55%' },
   avatar: { width: 32, height: 32, borderRadius: 16 },
   tabs: { height: feedTabHeight, flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth },
   tab: { flex: 1, minWidth: 0, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' },

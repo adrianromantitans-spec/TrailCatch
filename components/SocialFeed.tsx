@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert } from 'react-native';
 import type { FlatListProps } from 'react-native';
 import type { Gesture } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
@@ -12,7 +12,7 @@ import { changeRelation, feedPage, pageSize } from '../services/social';
 import type { FeedMode, SocialPost } from '../services/social';
 import { FeedSkeleton } from './FeedCard';
 import { SocialPostCard } from './SocialPostCard';
-import { Button, Notice, styles } from './ui';
+import { EmptyState, Notice, styles } from './ui';
 
 export function SocialFeed({ mode, bottom, top, nativeBar, onScroll, feedSwipe }: {
   mode: FeedMode; bottom: number; top: number; nativeBar: boolean; onScroll?: FlatListProps<SocialPost>['onScroll'];
@@ -109,12 +109,11 @@ export function SocialFeed({ mode, bottom, top, nativeBar, onScroll, feedSwipe }
 
   const needsSignIn = mode === 'following' && !viewer;
   const needsLocation = mode === 'nearby' && !point;
-  const empty = needsSignIn ? <View style={styles.content}>
-    <Notice message={t.signInRequired} /><Button label={t.signIn} onPress={() => router.push('/account')} />
-  </View> : needsLocation ? <View style={styles.content}>
-    {locationError ? <Notice message={locationError} /> : null}
-    <Button label={locating ? t.loading : t.myLocation} disabled={locating} onPress={() => void locate()} icon="locate-outline" />
-  </View> : failed ? undefined : posts ? <Notice message={t.noPosts} /> : <FeedSkeleton />;
+  const empty = needsSignIn ? <EmptyState icon="person-circle-outline" message={t.signInRequired}
+    action={t.signIn} onAction={() => router.push('/account')} /> : needsLocation ? <EmptyState icon="locate-outline"
+    message={locationError || t.nearbyLocationPrompt} action={locating ? t.loading : t.myLocation}
+    disabled={locating} onAction={() => void locate()} /> : failed ? undefined : posts ? <EmptyState icon="images-outline" message={t.noPosts}
+    action={t.explore} onAction={() => router.navigate('/explore')} /> : <FeedSkeleton />;
 
   // Keep the vertical scroll view mounted while loading so the native tab bar can track it.
   return <Animated.FlatList onScroll={onScroll}

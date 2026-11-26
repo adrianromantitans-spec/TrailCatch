@@ -1,11 +1,13 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Linking, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Alert, Linking, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FeedHeader } from '../components/FeedHeader';
 import { initialMapRegion, MapView } from '../components/MapView';
 import type { MapRegion } from '../components/MapView';
-import { Button, Header, IconButton, side, styles, usePalette } from '../components/ui';
+import { Button, IconButton, styles, usePalette } from '../components/ui';
 import type { Point } from '../db/model';
 import { t } from '../i18n';
 import { europeanFishingAreas } from '../services/europeanFishingAreas';
@@ -20,7 +22,7 @@ export default function DiscoverMap() {
   const router = useRouter();
   const p = usePalette();
   const { bottom } = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const [kind, setKind] = useState<DiscoveryKind>('trails');
   const [region, setRegion] = useState(initialRegion);
   const [destination, setDestination] = useState<Point & Partial<MapRegion>>();
@@ -125,7 +127,9 @@ export default function DiscoverMap() {
       : status === 'ready' ? (kind === 'trails' ? t.selectTrailLine : t.selectMapFeature) : '';
 
   return <View style={{ flex: 1, backgroundColor: p.bg }}>
-    <Header title={t.discoverMap} back={() => router.canGoBack() ? router.back() : router.replace('/map')} />
+    <FeedHeader safeTop align="left" title={t.discoverMap} leading={
+      <IconButton name="chevron-back" label={t.back} align="start" color={p.accent}
+        onPress={() => router.canGoBack() ? router.back() : router.replace('/map')} />} />
     <View style={[styles.columns, layout.controls]}>
       <Button label={t.mappedTrails} icon="footsteps-outline" stretch singleLine
         selected={kind === 'trails'} onPress={() => switchKind('trails')} />
@@ -133,7 +137,8 @@ export default function DiscoverMap() {
         selected={kind === 'fishing'} onPress={() => switchKind('fishing')} />
       <Button label={t.europeMap} icon="globe-outline" stretch singleLine onPress={showEurope} />
     </View>
-    <MapView initialRegion={initialRegion} movedTo={destination} onViewport={setRegion} externalAttribution
+    <MapView initialRegion={initialRegion} movedTo={destination} onViewport={setRegion} externalAttribution compactLayers
+      loading={status === 'loading'}
       pins={markerFeatures.map((feature) => ({ id: feature.id, ...(selected?.id === feature.id ? selected.point : feature.point), title: featureName(feature),
         color: feature.guide ? '#255A46' : pinColor }))}
       lines={items.flatMap((feature) => feature.lines.map((coordinates, index) => ({
@@ -143,7 +148,7 @@ export default function DiscoverMap() {
         setSelected(trailNearPoint(point, items, Math.min(0.003, 18 * region.longitudeDelta / Math.max(1, width))));
       } : undefined} />
     <View style={[layout.panel, { paddingBottom: Math.max(bottom, 12), backgroundColor: p.surface, borderColor: p.line }]}>
-      {selected ? <>
+      {selected ? <ScrollView style={{ maxHeight: Math.min(240, height * 0.30) }} contentContainerStyle={layout.details}>
         <View style={styles.columns}>
           <Text accessibilityRole="header" numberOfLines={2} style={[styles.section, layout.title, { color: p.ink }]}>
             {featureName(selected)}
@@ -163,21 +168,24 @@ export default function DiscoverMap() {
         {guide && kind === 'trails' && <Button label={t.trailsAroundHere} icon="footsteps-outline" onPress={() => {
           void search(false, { ...initialRegion, ...selected.point });
         }} />}
-      </> : <>
-        {!!summary && <Text accessibilityLiveRegion="polite" style={{ color: status === 'error' ? p.danger : p.muted }}>{summary}</Text>}
-        <View style={styles.columns}>
-          <Button label={locating ? t.loading : t.nearMe} icon="locate-outline" disabled={locating} onPress={() => void nearMe()} />
-          <Button label={t.searchMapArea} stretch icon="search-outline" disabled={!bounds || status === 'loading'}
-            onPress={() => void search()} />
-        </View>
+      </ScrollView> : <>
+        {!!summary && <View style={layout.status}>
+          {status === 'empty' && <Ionicons name="map-outline" size={20} color={p.accent} />}
+          <Text accessibilityLiveRegion="polite" style={{ flex: 1, color: status === 'error' ? p.danger : p.muted }}>{summary}</Text>
+        </View>}
         {nextPage && <Button label={t.loadMoreTrails} icon="add-outline" disabled={status === 'loading'} onPress={() => void search(true)} />}
       </>}
+      <Button label={locating ? t.loading : t.nearMe} icon="locate-outline" disabled={locating} onPress={() => void nearMe()} />
+      <Button label={t.searchMapArea} icon="search-outline" primary disabled={!bounds || status === 'loading'}
+        onPress={() => void search()} />
     </View>
   </View>;
 }
 
 const layout = StyleSheet.create({
-  controls: { paddingHorizontal: side, paddingVertical: 8 },
-  panel: { paddingHorizontal: side, paddingTop: 8, gap: 8, borderTopWidth: StyleSheet.hairlineWidth },
+  controls: { paddingHorizontal: 16, paddingVertical: 8 },
+  panel: { paddingHorizontal: 16, paddingTop: 8, gap: 8, borderTopWidth: StyleSheet.hairlineWidth },
+  details: { gap: 8 },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { alignSelf: 'center', flex: 1 },
 });

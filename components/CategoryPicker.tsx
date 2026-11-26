@@ -100,6 +100,22 @@ export function CategoryBadge({ type }: { type: OutingType }) {
   </View>;
 }
 
+export function CategoryChips({ value, onChange }: { value: Option; onChange: (value: Option) => void }) {
+  const p = usePalette();
+  return <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+    accessibilityRole="radiogroup" accessibilityLabel={t.category} style={styles.chipStrip} contentContainerStyle={styles.chips}>
+    {filterOptions.map((option) => {
+      const active = option === value;
+      return <Pressable key={option} accessibilityRole="radio" accessibilityState={{ checked: active }}
+        onPress={() => onChange(option)} style={[styles.chip, {
+          backgroundColor: active ? brandGreen : p.surface, borderColor: active ? brandGreen : p.line,
+        }]}>
+        <Text style={[styles.chipText, { color: active ? onBrand : p.ink }]}>{t[option]}</Text>
+      </Pressable>;
+    })}
+  </ScrollView>;
+}
+
 const styles = StyleSheet.create({
   picker: { gap: 8 },
   row: { flexDirection: 'row', alignItems: 'stretch', gap },
@@ -112,4 +128,8 @@ const styles = StyleSheet.create({
   badge: { alignSelf: 'flex-start', maxWidth: '100%', flexDirection: 'row', alignItems: 'center',
     borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, gap: 4 },
   badgeLabel: { fontSize: 12, fontWeight: '600', flexShrink: 1 },
+  chipStrip: { flexGrow: 0 },
+  chips: { paddingHorizontal: 16, paddingVertical: 6, gap: 8, alignItems: 'center' },
+  chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, borderWidth: 1, borderRadius: 22 },
+  chipText: { fontSize: 14, fontWeight: '600' },
 });

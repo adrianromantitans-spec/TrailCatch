@@ -8,10 +8,11 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import Storage from 'expo-sqlite/kv-store';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, BackHandler, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { TabContent, useTabClearance } from '../../components/GlassTabBar';
-import { Avatar, Button, Field, IconButton, IconName, Notice, onBrand, styles, usePalette } from '../../components/ui';
+import { FeedHeader } from '../../components/FeedHeader';
+import { GridSkeleton } from '../../components/Skeleton';
+import { Avatar, Button, EmptyState, Field, IconButton, IconName, Notice, onBrand, styles, usePalette } from '../../components/ui';
 import { allOutings, deleteOutings } from '../../db/diary';
 import { localDate, PAGE_SIZE, photoList } from '../../db/model';
 import type { Outing, OutingType, Photo } from '../../db/model';
@@ -97,7 +98,6 @@ export default function Profile() {
   const { session } = useSession();
   const viewer = session?.user.id;
   const p = usePalette();
-  const inset = useSafeAreaInsets();
   const tabClearance = useTabClearance();
   const db = useSQLiteContext();
   const { items, error, load } = useDiary();
@@ -203,13 +203,13 @@ export default function Profile() {
     [t.largestCatch, largestCatch(outings)], [t.lastOuting, outings[0] ? formatLastOuting(outings[0].date, today) : '—'],
   ];
   const empty = error ? <Notice message={t.loadError} retry={() => void load()} />
-    : !items ? <Notice message={t.loading} loading />
-    : !outings.length ? <View style={profileStyles.empty}>
-      <Ionicons name="camera-outline" size={30} color={p.accent} />
-      <Text style={[profileStyles.emptyLabel, { color: p.muted }]}>{t.empty}</Text>
-      <Button label={t.addFirstOuting} icon="add" primary onPress={() => router.push('/create')} />
-    </View>
-    : <Notice message={tab === 'catches' ? t.noCatchPhotos : t.noSavedOutings} />;
+    : !items ? <GridSkeleton profile inset={0} />
+    : !outings.length ? <EmptyState icon="camera-outline" message={t.empty}
+      action={t.addFirstOuting} onAction={() => router.push('/create')} />
+    : <EmptyState icon={tab === 'catches' ? 'fish-outline' : 'bookmark-outline'}
+      message={tab === 'catches' ? t.noCatchPhotos : t.noSavedOutings}
+      action={tab === 'catches' ? t.create : t.diary}
+      onAction={() => { if (tab === 'catches') router.push('/create'); else setTab('outings'); }} />;
 
   const footer = tab === 'saved' && viewer ? <View style={profileStyles.footer}>
     <Button label={t.savedPosts} icon="bookmark-outline" onPress={() => router.push('/saved')} />
@@ -218,11 +218,9 @@ export default function Profile() {
   </View> : undefined;
 
   return <TabContent name="profile">
-    <View style={[profileStyles.header, { paddingTop: inset.top, backgroundColor: p.bg }]}>
-      <Text accessibilityRole="header" numberOfLines={1} style={[profileStyles.headerTitle, { color: p.accent }]}>{t.profile}</Text>
-      <IconButton name="menu-outline" label={t.profileMenu} align="end" expanded={menuOpen}
-        onPress={() => setMenuOpen((open) => !open)} />
-    </View>
+    <FeedHeader safeTop align="left" title={t.profile}
+      action={<IconButton name="menu-outline" label={t.profileMenu} align="end" expanded={menuOpen}
+        onPress={() => setMenuOpen((open) => !open)} />} />
     <View style={styles.screen}>
       <FlatList data={tileWidth ? tiles.slice(0, limit) : []} numColumns={3} keyExtractor={(item) => item.key}
         onEndReached={() => { if (limit < tiles.length) setLimit((value) => value + PAGE_SIZE); }}
@@ -231,7 +229,7 @@ export default function Profile() {
         onLayout={({ nativeEvent }) => setGridWidth(nativeEvent.layout.width)}
         contentContainerStyle={{ paddingBottom: tabClearance, paddingHorizontal: profileSide }}
         columnWrapperStyle={{ gap: gridGap, marginBottom: gridGap }}
-        ListHeaderComponent={<View style={profileStyles.summary}>
+        ListHeaderComponent={(items || error) ? <View style={profileStyles.summary}>
           <View style={profileStyles.identity}>
             <View style={[profileStyles.avatarRing, { borderColor: p.accent }]}>
               {avatar && avatarFailed !== avatar
@@ -303,7 +301,7 @@ export default function Profile() {
                 style={[profileStyles.tabLabel, { color: tab === key ? p.accent : p.muted }]}>{t[key]}</Text>
             </Pressable>)}
           </View>
-        </View>}
+        </View> : undefined}
         ListEmptyComponent={!tiles.length ? empty : undefined}
         ListFooterComponent={footer}
         renderItem={({ item }) => {
@@ -367,8 +365,6 @@ export default function Profile() {
 
 
 const profileStyles = StyleSheet.create({
-  header: { paddingHorizontal: profileSide, flexDirection: 'row', alignItems: 'center' },
-  headerTitle: { flex: 1, fontSize: 21, fontWeight: '700' },
   summary: { paddingTop: 8, paddingBottom: 8, gap: 8 },
   identity: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   identityText: { flex: 1, minWidth: 0, gap: 2 },
@@ -405,8 +401,6 @@ const profileStyles = StyleSheet.create({
     borderRadius: 6, backgroundColor: '#10221AE6', flexDirection: 'row', alignItems: 'center', gap: 3 },
   catchLabel: { flexShrink: 1, fontSize: 10, fontWeight: '700' },
   footer: { marginTop: 8 },
-  empty: { alignItems: 'center', gap: 8, paddingVertical: 16 },
-  emptyLabel: { textAlign: 'center' },
   scrim: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: '#10191470', zIndex: 1 },
   menuAnchor: { position: 'absolute', top: 4, left: profileSide, right: profileSide, zIndex: 2, alignItems: 'flex-end' },
   menu: { width: 240, maxWidth: '100%', flexGrow: 0, borderRadius: 16,

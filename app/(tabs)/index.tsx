@@ -11,7 +11,7 @@ import { TabContent, useHomeTabScroll, useTabClearance } from '../../components/
 import { HomeHeader, homeHeaderHeight, homeModes } from '../../components/HomeHeader';
 import type { HomeMode } from '../../components/HomeHeader';
 import { SocialFeed } from '../../components/SocialFeed';
-import { Notice, styles, usePalette } from '../../components/ui';
+import { EmptyState, Notice, styles, usePalette } from '../../components/ui';
 import { updateOuting } from '../../db/diary';
 import { Outing } from '../../db/model';
 import { useOutingPages } from '../../db/useDiary';
@@ -93,7 +93,8 @@ export default function Feed() {
             maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 0 }}
             contentContainerStyle={{ paddingTop: listTop, paddingBottom: bottom }}
             refreshing={refreshing} onRefresh={() => void load(true)} onEndReached={() => void load(false)}
-            ListEmptyComponent={error ? undefined : items ? <Notice message={t.empty} /> : <FeedSkeleton />}
+            ListEmptyComponent={error ? undefined : items ? <EmptyState icon="camera-outline" message={t.empty}
+              action={t.addFirstOuting} onAction={() => router.push('/create')} /> : <FeedSkeleton />}
             ListFooterComponent={error ? <Notice message={t.loadError} retry={() => void load(true)} /> : undefined}
             renderItem={({ item }) => <FeedCard item={item} author={currentAuthor} feedSwipe={swipe}
               onLike={() => void react(item.id, (old) => ({ ...old, liked: !old.liked, likes: old.likes + (old.liked ? -1 : 1) }))}

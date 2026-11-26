@@ -8,6 +8,7 @@ import type { Profile } from '../services/social';
 import { FeedActions } from './FeedActions';
 import { FeedPhotos, useFeedPhotoFrame } from './FeedPhotos';
 import type { FeedSwipe } from './FeedPhotos';
+import { Skeleton, SkeletonBlock } from './Skeleton';
 import { Avatar, styles, usePalette } from './ui';
 
 type FeedAuthor = Pick<Profile, 'display_name' | 'avatar_url'>;
@@ -58,14 +59,14 @@ export function FeedCard({ item, author, onLike, onSave, onComment, feedSwipe }:
 export function FeedSkeleton() {
   const p = usePalette();
   const photoFrame = useFeedPhotoFrame();
-  return <View accessibilityLabel={t.loading} style={[feedCardLayout.card, { borderColor: p.line, backgroundColor: p.surface }]}>
-    <View style={[feedCardLayout.avatar, { backgroundColor: p.soft }]} />
+  return <Skeleton style={[feedCardLayout.card, { borderColor: p.line, backgroundColor: p.surface }]}>
+    <SkeletonBlock style={feedCardLayout.avatar} />
     <View style={feedCardLayout.body}>
-      <View style={{ width: 110, height: 11, borderRadius: 5, backgroundColor: p.soft }} />
-      <View style={{ width: 62, height: 9, borderRadius: 4, backgroundColor: p.soft }} />
-      <View style={[photoFrame, { backgroundColor: p.soft }]} />
+      <SkeletonBlock style={{ width: 110, height: 11, borderRadius: 5 }} />
+      <SkeletonBlock style={{ width: 62, height: 9, borderRadius: 4 }} />
+      <SkeletonBlock style={photoFrame} />
     </View>
-  </View>;
+  </Skeleton>;
 }
 
 export const feedCardLayout = StyleSheet.create({

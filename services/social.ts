@@ -105,12 +105,13 @@ export async function decoratePosts(rows: PostRow[], viewer?: string, includeVid
 }
 
 export async function discoveryPage(text: string, mode: 'posts' | 'reels', hasReels: boolean, viewer?: string,
-  cursor?: Pick<PostRow, 'created_at' | 'id'>, signal?: AbortSignal) {
+  cursor?: Pick<PostRow, 'created_at' | 'id'>, signal?: AbortSignal, category?: OutingType) {
   const columns = 'id,user_id,spot_id,trip_id,trip_preview,caption,created_at,likes_count,comments_count';
   let request = requireBackend().from('posts').select(hasReels ? `${columns},post_videos(post_id)` : columns)
     .eq('visibility', 'public').eq('deleted', false)
     .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(pageSize);
-  if (viewer) request = request.neq('user_id', viewer);
+  if (viewer && mode === 'reels') request = request.neq('user_id', viewer);
+  if (category) request = request.eq('trip_preview->>type', category);
   if (hasReels) request = mode === 'reels' ? request.not('post_videos', 'is', null) : request.is('post_videos', null);
   if (signal) request = request.abortSignal(signal);
   const conditions: string[] = [];

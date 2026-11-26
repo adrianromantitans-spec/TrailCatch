@@ -21,6 +21,8 @@ const es = {
   invalidNumbers: 'Revisa los valores numéricos y las horas de captura.',
   saveError: 'No se pudo guardar la salida.', loadError: 'No se pudieron cargar los datos.',
   retry: 'Reintentar', empty: 'Aún no hay salidas', noResults: 'No hay resultados', noCategoryResults: 'No hay salidas en esta categoría', loading: 'Cargando…',
+  exploreNoResults: 'No encontramos nada', clearFilters: 'Limpiar filtros', mapLayers: 'Capas del mapa',
+  nearbyLocationPrompt: 'Usa tu ubicación para ver publicaciones cerca de ti.',
   like: 'Me gusta', unlike: 'Quitar Me gusta', comment: 'Comentar', comments: 'Comentarios',
   commentPlaceholder: 'Añade un comentario', send: 'Enviar', noComments: 'Aún no hay comentarios',
   openCommentCount: (count: number) => count === 1 ? 'Ver el comentario' : `Ver los ${count} comentarios`,
@@ -146,6 +148,7 @@ const es = {
 const translations: Record<Locale, Partial<typeof es>> = {
   es,
   en: {
+    all: 'All', category: 'Category', fishing: 'Fishing', hike: 'Hiking', both: 'Fishing and hiking',
     selectTrailLine: 'Tap a green trail line for directions.', loadMoreTrails: 'Load more trails',
     europeMap: 'Europe', europeFishingHint: 'Tap a green marker for the area and its source.', fishingOfficialInfo: 'Permits and rules',
     europeTrailHint: 'Tap a marker to explore a European route and its nearby trails.',
@@ -174,6 +177,8 @@ const translations: Record<Locale, Partial<typeof es>> = {
     authConnectionError: 'Could not connect to sign in. Try again in a few seconds.',
     authRateLimit: 'Too many attempts. Wait a moment and try again.',
     searchDiary: 'Search my diary', searchCommunity: 'Search people or posts', clearCommunitySearch: 'Clear search', noPeopleFound: 'No people found.',
+    exploreNoResults: 'We didn’t find anything', clearFilters: 'Clear filters', mapLayers: 'Map layers',
+    nearbyLocationPrompt: 'Use your location to see nearby posts.',
     reels: 'Reels', newReel: 'Create reel', addReelVideo: 'Choose video', playReel: 'Play video', noReels: 'No reels yet.',
     reelsUnavailable: 'Reels are not available yet.', reelLimits: 'Choose an MP4 or MOV video up to 30 seconds and 20 MB.',
     reelPickError: 'Could not select the video.', reelPlaybackError: 'Could not play the video.',
@@ -192,6 +197,7 @@ const translations: Record<Locale, Partial<typeof es>> = {
     mapLocationDenied: 'Allow location access to centre the map near you.',
   },
   ro: {
+    all: 'Toate', category: 'Categorie', fishing: 'Pescuit', hike: 'Drumeție', both: 'Pescuit și drumeție',
     selectTrailLine: 'Atinge un traseu verde pentru indicații.', loadMoreTrails: 'Încarcă mai multe trasee',
     europeMap: 'Europa', europeFishingHint: 'Atinge un marcaj verde pentru detalii și sursă.', fishingOfficialInfo: 'Permise și reguli',
     europeTrailHint: 'Atinge un marcaj pentru a explora o rută europeană și traseele din apropiere.',
@@ -222,6 +228,8 @@ const translations: Record<Locale, Partial<typeof es>> = {
     authConnectionError: 'Conectarea la serviciu a eșuat. Încearcă din nou în câteva secunde.',
     authRateLimit: 'Prea multe încercări. Așteaptă puțin și încearcă din nou.',
     searchDiary: 'Caută în jurnal', searchCommunity: 'Caută persoane sau postări', clearCommunitySearch: 'Golește căutarea', noPeopleFound: 'Nu au fost găsite persoane.',
+    exploreNoResults: 'Nu am găsit nimic', clearFilters: 'Șterge filtrele', mapLayers: 'Straturi hartă',
+    nearbyLocationPrompt: 'Folosește locația ta pentru a vedea postări din apropiere.',
     reels: 'Reels', newReel: 'Creează un reel', addReelVideo: 'Alege un videoclip', playReel: 'Redă videoclipul', noReels: 'Încă nu există reel-uri.',
     reelsUnavailable: 'Reel-urile nu sunt încă disponibile.', reelLimits: 'Alege un videoclip MP4 sau MOV de cel mult 30 de secunde și 20 MB.',
     reelPickError: 'Videoclipul nu a putut fi selectat.', reelPlaybackError: 'Videoclipul nu a putut fi redat.',

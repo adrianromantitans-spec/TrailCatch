@@ -89,6 +89,17 @@ export function Notice({ message, loading, retry }: { message: string; loading?:
   );
 }
 
+export function EmptyState({ icon, message, action, onAction, disabled }: {
+  icon: IconName; message: string; action: string; onAction: () => void; disabled?: boolean;
+}) {
+  const p = usePalette();
+  return <View style={styles.notice}>
+    <Ionicons name={icon} size={32} color={p.accent} />
+    <Text accessibilityLiveRegion="polite" style={{ color: p.muted, textAlign: 'center' }}>{message}</Text>
+    <Button label={action} onPress={onAction} disabled={disabled} />
+  </View>;
+}
+
 export function Avatar({ sample, size = 38 }: { sample?: boolean; size?: number }) {
   const p = usePalette();
   return (
