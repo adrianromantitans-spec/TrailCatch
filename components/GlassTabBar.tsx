@@ -18,17 +18,20 @@ const compactBarHeight = 54;
 const compactSideInset = 12;
 const tabCount = 5;
 const pillInset = 6;
+const AnimatedGlassView = Animated.createAnimatedComponent(GlassView);
 const tabMotion = {
-  // Reanimated uses a perceptual duration. The spring settles in about 410 ms.
-  slideDuration: 275,
-  dampingRatio: 0.78,
-  edgeOverrun: 3,
+  // Reanimated uses a perceptual duration. The spring settles in about 430 ms.
+  slideDuration: 285,
+  dampingRatio: 0.58,
+  edgeOverrun: 5,
+  pillStretch: 6,
   tintDuration: 190,
   popScale: 1.15,
   popUp: 85,
   popDown: 170,
   pressScale: 0.98,
   pressDuration: 110,
+  releaseDuration: 180,
 };
 const barBottom = (inset: number) => Math.max(inset, 8) + 8;
 
@@ -164,23 +167,32 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
   const corners = useAnimatedStyle(() => ({ borderRadius: (barHeight - (barHeight - compactBarHeight) * compact.get()) / 2 }));
   const indicator = useAnimatedStyle(() => {
     const slot = Math.max(0, width - 2 - 2 * maxInset * compact.get()) / tabCount;
+    const position = selectedSlot.get();
+    const flex = Math.min(1, Math.abs(position - slotIndex));
+    const stretch = flex * tabMotion.pillStretch;
     const translateX = Math.max(-tabMotion.edgeOverrun,
-      Math.min((tabCount - 1) * slot + tabMotion.edgeOverrun, selectedSlot.get() * slot));
-    return { width: Math.max(0, slot - 2 * pillInset), transform: [{ translateX }] };
+      Math.min((tabCount - 1) * slot + tabMotion.edgeOverrun - stretch, position * slot - stretch / 2));
+    return {
+      width: Math.max(0, slot - 2 * pillInset) + stretch,
+      transform: [{ translateX }, { scaleY: 1 - 0.08 * flex }],
+    };
   });
   const labelMotion = useAnimatedStyle<ViewStyle>(() => {
     const visible = 1 - compact.get();
     return { opacity: visible, height: 16 * visible, marginTop: 2 * visible };
   });
   const plus = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() * (1 - compact.get() * 0.09) / barScale.get() }] }));
-  const nativeGlass = Platform.OS === 'ios' && isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
-  const blur = Platform.OS === 'ios' || (Platform.OS === 'android' && Number(Platform.Version) >= 31);
+  const ios = Platform.OS === 'ios';
+  const nativeGlass = ios && isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
+  const blur = ios || (Platform.OS === 'android' && Number(Platform.Version) >= 31);
   const target = context?.targets[active];
 
   function pressBar(pressed: boolean) {
-    barScale.set(withTiming(pressed ? tabMotion.pressScale : 1, {
-      duration: tabMotion.pressDuration, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System,
-    }));
+    barScale.set(pressed
+      ? withTiming(tabMotion.pressScale, {
+        duration: tabMotion.pressDuration, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System,
+      })
+      : withSpring(1, { duration: tabMotion.releaseDuration, dampingRatio: 0.55, reduceMotion: ReduceMotion.System }));
   }
 
   function tab(name: TabName) {
@@ -204,45 +216,50 @@ export function GlassTabBar({ state, descriptors, emitter, navigateToTab, onCrea
     );
   }
 
+  const tabRow = <View style={styles.tabRow}>
+    {width > 0 && <Animated.View pointerEvents="none" style={[styles.indicator,
+      { backgroundColor: nativeGlass ? '#87B89B40' : p.soft }, indicator]} />}
+    {tab('index')}
+    {tab('map')}
+    <Pressable accessibilityRole="button" accessibilityLabel={t.createMenu} style={styles.slot}
+      onPressIn={() => { scale.set(withSpring(0.88)); }}
+      onPressOut={() => { scale.set(withSpring(1)); }}
+      onPress={() => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        onCreate();
+      }}>
+      <Animated.View style={[styles.plus, { backgroundColor: brandGreen }, plus]}>
+        <Ionicons name="add" size={24} color={onBrand} />
+      </Animated.View>
+      <Animated.View style={[styles.caption, labelMotion]}>
+        <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.2}
+          style={[styles.label, { color: p.accent }]}>{t.createMenu}</Animated.Text>
+      </Animated.View>
+    </Pressable>
+    {tab('explore')}
+    {tab('profile')}
+  </View>;
+
   return (
     <View pointerEvents="box-none"
       style={[styles.outer, { bottom: barBottom(inset.bottom), left: inset.left + side, right: inset.right + side }]}>
       <Animated.View style={[styles.shadow, frame]}>
-        <Animated.View style={[styles.pill, corners, {
-          backgroundColor: nativeGlass ? 'transparent' : blur ? p.glass : p.glassSolid,
-          borderColor: nativeGlass ? '#FFFFFFA6' : p.line,
-        }]}>
-          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            {nativeGlass ? <GlassView glassEffectStyle="regular" colorScheme="light"
-                tintColor="#FFFFFF66" style={StyleSheet.absoluteFill} />
-              : blur && <BlurView key={active} blurTarget={target}
-                experimentalBlurMethod="dimezisBlurView"
-                tint="light" intensity={35} style={StyleSheet.absoluteFill} />}
-          </View>
-          <View style={styles.tabRow}>
-            {width > 0 && <Animated.View pointerEvents="none" style={[styles.indicator,
-              { backgroundColor: nativeGlass ? '#E7F1EBD9' : p.soft }, indicator]} />}
-            {tab('index')}
-            {tab('map')}
-            <Pressable accessibilityRole="button" accessibilityLabel={t.createMenu} style={styles.slot}
-              onPressIn={() => { scale.set(withSpring(0.88)); }}
-              onPressOut={() => { scale.set(withSpring(1)); }}
-              onPress={() => {
-                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                onCreate();
-              }}>
-              <Animated.View style={[styles.plus, { backgroundColor: brandGreen }, plus]}>
-                <Ionicons name="add" size={24} color={onBrand} />
-              </Animated.View>
-              <Animated.View style={[styles.caption, labelMotion]}>
-                <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.2}
-                  style={[styles.label, { color: p.accent }]}>{t.createMenu}</Animated.Text>
-              </Animated.View>
-            </Pressable>
-            {tab('explore')}
-            {tab('profile')}
-          </View>
-        </Animated.View>
+        {nativeGlass ? (
+          <AnimatedGlassView glassEffectStyle="regular" isInteractive colorScheme="light"
+            tintColor="#F2FFF42B" style={[styles.surface, corners]}>
+            {tabRow}
+          </AnimatedGlassView>
+        ) : (
+          <Animated.View style={[styles.surface, styles.fallbackClip, corners, {
+            backgroundColor: ios ? '#FFFFFFA6' : blur ? p.glass : p.glassSolid, borderColor: p.line,
+          }]}>
+            {blur && <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+              <BlurView key={active} blurTarget={target} experimentalBlurMethod="dimezisBlurView"
+                tint="light" intensity={ios ? 48 : 35} style={StyleSheet.absoluteFill} />
+            </View>}
+            {tabRow}
+          </Animated.View>
+        )}
       </Animated.View>
     </View>
   );
@@ -253,7 +270,8 @@ const styles = StyleSheet.create({
   outer: { position: 'absolute' },
   shadow: { shadowColor: '#14251D', elevation: 5, shadowOpacity: 0.15, shadowRadius: 12,
     shadowOffset: { width: 0, height: 5 } },
-  pill: { flex: 1, borderWidth: 1, overflow: 'hidden' },
+  surface: { flex: 1, borderWidth: 1, borderColor: 'transparent' },
+  fallbackClip: { overflow: 'hidden' },
   tabRow: { flex: 1, flexDirection: 'row' },
   tabIcon: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   slot: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' },
