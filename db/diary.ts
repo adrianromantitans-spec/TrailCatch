@@ -36,8 +36,9 @@ export async function initialize(db: SQLiteDatabase) {
   await db.execAsync('PRAGMA journal_mode = WAL');
   await db.withExclusiveTransactionAsync(async (tx) => {
     const version = (await tx.getFirstAsync<{ user_version: number }>('PRAGMA user_version'))?.user_version ?? 0;
-    if (version >= 2) return;
-    await tx.execAsync(`
+    if (version >= 3) return;
+    if (version < 2) {
+      await tx.execAsync(`
       CREATE TABLE IF NOT EXISTS outings (
         id TEXT PRIMARY KEY NOT NULL, date TEXT NOT NULL, type TEXT NOT NULL,
         sample INTEGER NOT NULL, search_text TEXT NOT NULL, data TEXT NOT NULL
@@ -61,20 +62,25 @@ export async function initialize(db: SQLiteDatabase) {
       UPDATE outings SET data = json_set(data, '$.id', id)
       WHERE json_extract(data, '$.id') IS NOT id;
     `);
-    // A normal installation already enforces this through the primary key.
-    const idColumn = await tx.getFirstAsync<{ pk: number }>("SELECT pk FROM pragma_table_info('outings') WHERE name = 'id'");
-    if (!idColumn?.pk) await tx.execAsync('CREATE UNIQUE INDEX IF NOT EXISTS outings_unique_id ON outings(id)');
-    if (version === 0) {
-      for (const outing of seed()) {
-        await tx.runAsync(`${insertSql} ON CONFLICT(id) DO NOTHING`, ...outingValues(outing));
+      // A normal installation already enforces this through the primary key.
+      const idColumn = await tx.getFirstAsync<{ pk: number }>("SELECT pk FROM pragma_table_info('outings') WHERE name = 'id'");
+      if (!idColumn?.pk) await tx.execAsync('CREATE UNIQUE INDEX IF NOT EXISTS outings_unique_id ON outings(id)');
+      if (version === 0 && !(await tx.getFirstAsync('SELECT 1 FROM outings WHERE sample = 0 LIMIT 1'))) {
+        for (const outing of seed()) {
+          await tx.runAsync(`${insertSql} ON CONFLICT(id) DO NOTHING`, ...outingValues(outing));
+        }
       }
     }
-    await tx.execAsync('PRAGMA user_version = 2');
+    await tx.execAsync('DELETE FROM outings WHERE sample = 1 AND EXISTS (SELECT 1 FROM outings WHERE sample = 0)');
+    await tx.execAsync('PRAGMA user_version = 3');
   });
 }
 
 export async function insertOuting(db: SQLiteDatabase, outing: Outing) {
-  await db.runAsync(insertSql, ...outingValues(outing));
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.runAsync(insertSql, ...outingValues(outing));
+    if (!outing.sample) await deleteOutings(tx, true);
+  });
 }
 
 export async function putOuting(db: SQLiteDatabase, outing: Outing) {

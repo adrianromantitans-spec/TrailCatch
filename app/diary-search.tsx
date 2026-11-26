@@ -1,7 +1,8 @@
 import { Image } from 'expo-image';
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
+import { PressFeedback as Pressable } from '../components/PressFeedback';
 import { CategoryBadge, CategoryPicker } from '../components/CategoryPicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Button, Field, Header, Notice, side, styles, usePalette } from '../components/ui';

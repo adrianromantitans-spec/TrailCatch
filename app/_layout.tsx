@@ -6,6 +6,7 @@ import { Component, ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider } from '../services/backend';
 import { initialize } from '../db/diary';
+import { ToastProvider } from '../components/Toast';
 import { Notice, usePalette } from '../components/ui';
 import { t } from '../i18n';
 
@@ -31,13 +32,15 @@ export default function RootLayout() {
         <StatusBar style="dark" />
         <AuthProvider>
           <DatabaseBoundary>
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: p.bg }, animation: 'fade_from_bottom' }}>
-              <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-              <Stack.Screen name="welcome" options={{ animation: 'fade', gestureEnabled: false }} />
-              <Stack.Screen name="create" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
-              <Stack.Screen name="post/comments" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.56, 1],
-                sheetCornerRadius: 28, sheetGrabberVisible: true, sheetExpandsWhenScrolledToEdge: true }} />
-            </Stack>
+            <ToastProvider>
+              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: p.bg }, animation: 'fade_from_bottom' }}>
+                <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+                <Stack.Screen name="welcome" options={{ animation: 'fade', gestureEnabled: false }} />
+                <Stack.Screen name="create" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
+                <Stack.Screen name="post/comments" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.56, 1],
+                  sheetCornerRadius: 28, sheetGrabberVisible: true, sheetExpandsWhenScrolledToEdge: true }} />
+              </Stack>
+            </ToastProvider>
           </DatabaseBoundary>
         </AuthProvider>
       </ThemeProvider>

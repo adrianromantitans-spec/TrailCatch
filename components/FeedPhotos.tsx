@@ -1,7 +1,11 @@
-import { useMemo, useState } from 'react';
+import { Image } from 'expo-image';
+import type { ImageSource } from 'expo-image';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { cancelAnimation, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { usePalette } from './ui';
 
 export type FeedSwipe = ReturnType<typeof Gesture.Pan>;
@@ -9,6 +13,27 @@ export type FeedSwipe = ReturnType<typeof Gesture.Pan>;
 export function useFeedPhotoFrame() {
   const { height } = useWindowDimensions();
   return [layout.frame, { maxHeight: height * 0.45 }];
+}
+
+export function ProgressiveFeedImage({ source, thumbnail }: {
+  source: ImageSource | string | number; thumbnail?: ImageSource | string | number;
+}) {
+  const opacity = useSharedValue(0);
+  const [loaded, setLoaded] = useState(false);
+  const reveal = useAnimatedStyle(() => ({ opacity: opacity.get() }));
+  useEffect(() => () => cancelAnimation(opacity), [opacity]);
+  return <>
+    {!loaded && <Image accessible={false} source={thumbnail ?? source} contentFit="cover" blurRadius={14}
+      cachePolicy="memory-disk" style={StyleSheet.absoluteFill} />}
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, reveal]}>
+      <Image accessible={false} source={source} contentFit="cover" cachePolicy="memory-disk"
+        style={StyleSheet.absoluteFill} onDisplay={() => {
+          opacity.set(withTiming(1, { duration: 180, reduceMotion: ReduceMotion.System }, (finished) => {
+            if (finished) scheduleOnRN(setLoaded, true);
+          }));
+        }} />
+    </Animated.View>
+  </>;
 }
 
 export function FeedPhotos<T>({ photos, photoKey, renderPhoto, feedSwipe, overlay }: {
@@ -51,7 +76,7 @@ export function FeedPhotos<T>({ photos, photoKey, renderPhoto, feedSwipe, overla
 }
 
 const layout = StyleSheet.create({
-  frame: { width: '100%', aspectRatio: 16 / 9, borderRadius: 16, overflow: 'hidden' },
+  frame: { width: '100%', aspectRatio: 4 / 3, borderRadius: 16, overflow: 'hidden' },
   // The dots sit in the gap between the photo and the actions.
   dots: { position: 'absolute', left: 0, right: 0, bottom: -9, flexDirection: 'row', justifyContent: 'center', gap: 5 },
   dot: { width: 6, height: 6, borderRadius: 3 },

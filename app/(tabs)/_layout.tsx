@@ -1,14 +1,16 @@
 import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { Redirect, Tabs, useRouter } from 'expo-router';
+import { Redirect, Tabs, usePathname, useRouter } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { ActivityIndicator, Alert, Platform, View } from 'react-native';
 import { GlassTabBar, GlassTargets } from '../../components/GlassTabBar';
 import { usePalette } from '../../components/ui';
 import { t } from '../../i18n';
 import { backend, useSession } from '../../services/backend';
+import { selectionFeedback } from '../../services/interaction';
 
 export default function TabsLayout() {
   const router = useRouter();
+  const pathname = usePathname();
   const p = usePalette();
   const { session, guest, loading, profileSetup } = useSession();
   if (loading || profileSetup === 'checking') return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: p.bg }}>
@@ -25,15 +27,16 @@ export default function TabsLayout() {
     ]);
   };
   const useNativeBar = Platform.OS === 'ios' && isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
+  const tabFeedback = (path: string) => ({ tabPress: () => { if (pathname !== path) selectionFeedback(); } });
 
   if (useNativeBar) return (
     <GlassTargets nativeBar>
       <NativeTabs tintColor={p.accent} iconColor={{ default: p.muted, selected: p.accent }} minimizeBehavior="onScrollDown">
-        <NativeTabs.Trigger name="index">
+        <NativeTabs.Trigger name="index" listeners={tabFeedback('/')}>
           <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} />
           <NativeTabs.Trigger.Label>{t.home}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="map" disableAutomaticContentInsets>
+        <NativeTabs.Trigger name="map" disableAutomaticContentInsets listeners={tabFeedback('/map')}>
           <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} />
           <NativeTabs.Trigger.Label>{t.map}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
@@ -43,11 +46,11 @@ export default function TabsLayout() {
           <NativeTabs.Trigger.Icon sf="plus.circle.fill" />
           <NativeTabs.Trigger.Label>{t.createMenu}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="explore" disableAutomaticContentInsets>
+        <NativeTabs.Trigger name="explore" disableAutomaticContentInsets listeners={tabFeedback('/explore')}>
           <NativeTabs.Trigger.Icon sf="magnifyingglass" />
           <NativeTabs.Trigger.Label>{t.search}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="profile" disableAutomaticContentInsets>
+        <NativeTabs.Trigger name="profile" disableAutomaticContentInsets listeners={tabFeedback('/profile')}>
           <NativeTabs.Trigger.Icon sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }} />
           <NativeTabs.Trigger.Label>{t.profile}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>

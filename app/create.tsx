@@ -12,6 +12,7 @@ import type { CatchDraft } from '../components/CatchEditor';
 import { CategoryPicker } from '../components/CategoryPicker';
 import { MapView } from '../components/MapView';
 import { OutingCamera } from '../components/OutingCamera';
+import { useToast } from '../components/Toast';
 import { Button, Field, Header, IconButton, side, styles, usePalette } from '../components/ui';
 import { insertOuting } from '../db/diary';
 import { localDate, OutingType, Photo, Point } from '../db/model';
@@ -49,6 +50,7 @@ export default function Create() {
   const inset = useSafeAreaInsets();
   const router = useRouter();
   const db = useSQLiteContext();
+  const showToast = useToast();
   const [type, setType] = useState<OutingType>('fishing');
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(localDate);
@@ -228,7 +230,10 @@ export default function Create() {
       return;
     }
     if (type === 'hike') discardPhotos(catches.flatMap(({ photo }) => photo ? [photo] : []));
-    if (alive.current) router.back();
+    if (alive.current) {
+      router.back();
+      showToast(t.outingSaved);
+    }
   }
 
   if (capture !== null) {

@@ -1,11 +1,12 @@
-import { Image } from 'expo-image';
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategoryBadge } from '../../components/CategoryPicker';
 import { CatchBadges } from '../../components/CatchBadge';
+import { ProgressiveFeedImage, useFeedPhotoFrame } from '../../components/FeedPhotos';
 import { ReelVideo } from '../../components/ReelVideo';
+import { useToast } from '../../components/Toast';
 import { Button, Header, Notice, side, styles, usePalette } from '../../components/ui';
 import { t } from '../../i18n';
 import { backend, useSession } from '../../services/backend';
@@ -15,7 +16,9 @@ import type { PostRow, SocialPost } from '../../services/social';
 export default function PostDetail() {
   const { id, parent } = useLocalSearchParams<{ id: string; parent?: string }>();
   const router = useRouter();
+  const showToast = useToast();
   const p = usePalette();
+  const mediaFrame = useFeedPhotoFrame();
   const inset = useSafeAreaInsets();
   const viewer = useSession().session?.user.id;
   const [post, setPost] = useState<SocialPost | null>();
@@ -45,6 +48,7 @@ export default function PostDetail() {
           const result = await requireBackend().rpc('delete_own_post', { post: id });
           if (result.error) throw result.error;
           if (router.canGoBack()) router.back(); else router.replace('/');
+          showToast(t.postDeleted);
         } catch { Alert.alert(t.actionError); }
       } },
     ]);
@@ -60,8 +64,9 @@ export default function PostDetail() {
       retry={failed ? () => setRevision((value) => value + 1) : undefined} /> :
       <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: inset.bottom + side }]}>
         {post.video && <ReelVideo key={post.video.uri} uri={post.video.uri} />}
-        {post.photos[0] && <Image source={post.photos[0].uri} cachePolicy="memory"
-          style={{ width: '100%', aspectRatio: 4 / 5, borderRadius: 14 }} />}
+        {post.photos[0] && <View style={[mediaFrame, { backgroundColor: p.soft }]} accessible accessibilityLabel={post.caption || t.post}>
+          <ProgressiveFeedImage key={post.photos[0].uri} source={post.photos[0].uri} thumbnail={post.photos[0].thumbnail} />
+        </View>}
         {!!post.caption && <Text style={{ color: p.ink }}>{post.caption}</Text>}
         {post.trip_preview && <View style={styles.group}>
           <Text style={[styles.section, { color: p.ink }]}>{post.trip_preview.title}</Text>

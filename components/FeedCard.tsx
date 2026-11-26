@@ -1,13 +1,14 @@
 import { Image } from 'expo-image';
 import { Link } from 'expo-router';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Share, StyleSheet, Text, View } from 'react-native';
+import { PressFeedback as Pressable } from './PressFeedback';
 import { Outing, photoList } from '../db/model';
 import { relativeDate, t } from '../i18n';
 import { photoSource } from '../services/photos';
 import type { Profile } from '../services/social';
 import { CatchBadges } from './CatchBadge';
 import { FeedActions } from './FeedActions';
-import { FeedPhotos, useFeedPhotoFrame } from './FeedPhotos';
+import { FeedPhotos, ProgressiveFeedImage, useFeedPhotoFrame } from './FeedPhotos';
 import type { FeedSwipe } from './FeedPhotos';
 import { Skeleton, SkeletonBlock } from './Skeleton';
 import { Avatar, styles, usePalette } from './ui';
@@ -26,7 +27,7 @@ export function FeedCard({ item, author, onLike, onSave, onComment, feedSwipe }:
   const destination = { pathname: '/outing/[id]' as const, params: { id: item.id } };
   return <View style={[feedCardLayout.card, { borderColor: p.line, backgroundColor: p.surface }]}>
     <Link href={destination} asChild>
-      <Pressable accessibilityLabel={item.title} hitSlop={4}>
+      <Pressable accessibilityRole="link" accessibilityLabel={item.title} hitSlop={6} style={feedCardLayout.avatarLink}>
         {!item.sample && author?.avatar_url ? <Image source={author.avatar_url} style={feedCardLayout.avatar} /> :
           <Avatar sample={item.sample} size={feedCardAvatarSize} />}
       </Pressable>
@@ -37,7 +38,7 @@ export function FeedCard({ item, author, onLike, onSave, onComment, feedSwipe }:
         <Text style={[feedCardLayout.meta, { color: p.muted }]}>{t[item.type]} · {relativeDate(item.date)}</Text>
       </View>
       <Link href={destination} asChild>
-        <Pressable>
+        <Pressable accessibilityRole="link" style={feedCardLayout.titleLink}>
           <Text style={[feedCardLayout.copy, { color: p.ink }]}>
             <Text style={feedCardLayout.name}>{item.title}</Text>{item.notes ? `\n${item.notes}` : ''}
           </Text>
@@ -46,9 +47,8 @@ export function FeedCard({ item, author, onLike, onSave, onComment, feedSwipe }:
       <CatchBadges catches={item.catches} />
       <FeedPhotos photos={photoList(item)} feedSwipe={feedSwipe} photoKey={(photo, index) =>
         `${'uri' in photo ? photo.uri : photo.sample}-${index}`} renderPhoto={(photo) => <Link href={destination} asChild>
-          <Pressable accessibilityLabel={item.title} style={styles.screen}>
-            <Image source={photoSource(photo)} contentFit="cover" transition={160}
-              accessibilityLabel={item.title} style={[StyleSheet.absoluteFill, { backgroundColor: p.soft }]} />
+          <Pressable accessibilityRole="link" accessibilityLabel={item.title} style={styles.screen}>
+            <ProgressiveFeedImage key={'uri' in photo ? photo.uri : photo.sample} source={photoSource(photo)} />
           </Pressable>
         </Link>} />
       <FeedActions liked={item.liked} saved={item.saved} likes={item.likes} comments={item.comments.length}
@@ -75,6 +75,8 @@ export const feedCardLayout = StyleSheet.create({
   card: { paddingHorizontal: cardSide, paddingVertical: 12, flexDirection: 'row', gap: avatarGap,
     borderBottomWidth: StyleSheet.hairlineWidth },
   avatar: { width: feedCardAvatarSize, height: feedCardAvatarSize, borderRadius: feedCardAvatarSize / 2 },
+  avatarLink: { minHeight: 44, alignSelf: 'flex-start' },
+  titleLink: { minHeight: 44, justifyContent: 'center' },
   body: { flex: 1, minWidth: 0, gap: 12 },
   identity: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8, rowGap: 2 },
   name: { fontWeight: '700', fontSize: 15, flexShrink: 1 },

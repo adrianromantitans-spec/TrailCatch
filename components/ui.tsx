@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+import { PressFeedback as Pressable } from './PressFeedback';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../i18n';
 
@@ -16,7 +17,6 @@ const light = {
 export const usePalette = () => light;
 export const side = 20;
 
-// Style callbacks must reach the native Pressable unchanged to keep the pressed and resting styles.
 export function IconButton({ name, label, onPress, color, align, expanded, size = 44, iconSize = 23 }: {
   name: IconName; label: string; onPress: () => void; color?: string; align?: 'start' | 'end'; expanded?: boolean;
   size?: number; iconSize?: number;

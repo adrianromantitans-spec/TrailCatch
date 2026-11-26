@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { isAuthError, isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { PressFeedback as Pressable } from './PressFeedback';
 import type { TextInputProps } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { t } from '../i18n';
@@ -128,8 +129,9 @@ export function EmailAuthForm({ mode: supplied, onModeChange }: { mode?: AuthMod
         <Ionicons name={remember ? 'checkbox' : 'square-outline'} size={19} color={p.accent} />
         <Text style={[form.optionLabel, { color: p.ink }]}>{t.rememberMe}</Text>
       </Pressable>
-      <Text accessibilityRole="button" style={[form.optionLink, { color: p.accent }]}
-        onPress={() => change('recover')}>{t.forgotPassword}</Text>
+      <Pressable accessibilityRole="button" style={form.optionTarget} onPress={() => change('recover')}>
+        <Text style={[form.optionLink, { color: p.accent }]}>{t.forgotPassword}</Text>
+      </Pressable>
     </View>}
     <AuthSubmit label={pending === mode ? t.loading : recovery ? t.resetEmail : t[mode]}
       disabled={disabled} onPress={() => void submit(mode)} />
@@ -152,8 +154,9 @@ export function EmailAuthForm({ mode: supplied, onModeChange }: { mode?: AuthMod
     {!!notice && <Text accessibilityLiveRegion="polite" style={{ color: notice.error ? p.danger : p.ink }}>{notice.text}</Text>}
     <View style={form.switchMode}>
       {!recovery && <Text style={{ color: p.muted }}>{signup ? t.haveAccount : t.noAccountYet}</Text>}
-      <Text accessibilityRole="button" onPress={() => change(mode === 'signIn' ? 'signUp' : 'signIn')}
-        style={[form.optionLink, { color: p.accent }]}>{mode === 'signIn' ? t.registerLink : t.signIn}</Text>
+      <Pressable accessibilityRole="button" style={form.optionTarget} onPress={() => change(mode === 'signIn' ? 'signUp' : 'signIn')}>
+        <Text style={[form.optionLink, { color: p.accent }]}>{mode === 'signIn' ? t.registerLink : t.signIn}</Text>
+      </Pressable>
     </View>
   </View>;
 }
@@ -163,7 +166,8 @@ const form = StyleSheet.create({
   inputFrame: { minHeight: 54, flexDirection: 'row', alignItems: 'center', borderWidth: 1,
     borderRadius: 28, paddingLeft: 16, paddingRight: 8, gap: 10 },
   input: { flex: 1, minWidth: 0, minHeight: 52, paddingVertical: 10, fontSize: 16 },
-  eye: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+  eye: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  optionTarget: { minHeight: 44, minWidth: 44, flexShrink: 1, justifyContent: 'center' },
   loginOptions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   remember: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 44, maxWidth: '100%' },
   optionLabel: { flexShrink: 1, fontSize: 12 },

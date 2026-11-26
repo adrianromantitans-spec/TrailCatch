@@ -6,12 +6,14 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
 import type { ComponentRef } from 'react';
 import {
-  ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView,
+  ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView,
   StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import type { TextInputProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmailAuthForm } from '../components/EmailAuthForm';
+import { PressFeedback as Pressable } from '../components/PressFeedback';
+import { useToast } from '../components/Toast';
 import { Button, Header, Notice, onBrand, side, styles, usePalette } from '../components/ui';
 import { deleteOutings } from '../db/diary';
 import { t } from '../i18n';
@@ -66,6 +68,7 @@ export default function Account() {
 
 function ProfileEditor({ userId, admin, onboarding }: { userId: string; admin: boolean; onboarding: boolean }) {
   const router = useRouter();
+  const showToast = useToast();
   const navigation = useNavigation();
   const db = useSQLiteContext();
   const { resetGuest, finishProfileSetup } = useSession();
@@ -271,6 +274,7 @@ function ProfileEditor({ userId, admin, onboarding }: { userId: string; admin: b
       Keyboard.dismiss();
       resetGuest();
       router.replace('/welcome');
+      if (remove) showToast(t.accountDeleted);
     } catch {
       setLeaving(false); setMessage({ text: t.accountError, error: true });
     } finally { lock.current = false; if (mounted.current) setSaveBusy(false); }

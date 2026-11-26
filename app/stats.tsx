@@ -1,6 +1,7 @@
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { PressFeedback as Pressable } from '../components/PressFeedback';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnnualBars, monthName } from '../components/AnnualBars';
 import { CategoryBadge } from '../components/CategoryPicker';

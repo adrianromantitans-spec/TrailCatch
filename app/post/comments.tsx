@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { PressFeedback as Pressable } from '../../components/PressFeedback';
+import { ToastProvider, useToast } from '../../components/Toast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategoryBadge } from '../../components/CategoryPicker';
 import { Avatar, Button, IconButton, Notice, onBrand, side, usePalette } from '../../components/ui';
@@ -66,18 +68,20 @@ function CommentRow({ entry, viewer, reply, toggle, expanded, openProfile, remov
   }
 
   return <View style={layout.comment}>
-    <Pressable hitSlop={4} accessibilityRole="button" accessibilityLabel={author} onPress={openProfile}>
+    <Pressable hitSlop={6} style={layout.profileTarget} accessibilityRole="button" accessibilityLabel={author} onPress={openProfile}>
       {entry.author?.avatar_url ? <Image source={entry.author.avatar_url} style={layout.avatar} /> : <Avatar size={32} />}
     </Pressable>
     <View style={layout.commentBody}>
-      <Text style={[layout.author, { color: p.accent }]} accessibilityRole="link" onPress={openProfile}>{author}</Text>
+      <Pressable style={layout.textTarget} accessibilityRole="link" onPress={openProfile}>
+        <Text style={[layout.author, { color: p.accent }]}>{author}</Text>
+      </Pressable>
       <Text style={[layout.bodyText, { color: p.ink }]}>{entry.body}</Text>
       <View style={layout.commentActions}>
         {!!when && <Text style={[layout.caption, { color: p.muted }]}>{when}</Text>}
-        {reply && <Pressable hitSlop={6} accessibilityRole="button" onPress={reply}>
+        {reply && <Pressable style={layout.textTarget} accessibilityRole="button" onPress={reply}>
           <Text style={[layout.action, { color: p.accent }]}>{t.reply}</Text>
         </Pressable>}
-        {toggle && <Pressable hitSlop={6} accessibilityRole="button" accessibilityState={{ expanded }} onPress={toggle}>
+        {toggle && <Pressable style={layout.textTarget} accessibilityRole="button" accessibilityState={{ expanded }} onPress={toggle}>
           <Text style={[layout.action, { color: p.accent }]}>{expanded ? t.hideReplies : t.viewReplies}</Text>
         </Pressable>}
       </View>
@@ -144,13 +148,14 @@ export default function CommentsSheet() {
     {!backend || error || !post ? <Notice message={!backend ? t.backendUnavailable : error ? t.loadError : !id || post === null ? t.noResults : t.loading}
       loading={!!backend && !!id && !error && post === undefined}
       retry={error ? () => setRevision((value) => value + 1) : undefined} />
-      : <Conversation key={id} id={id} initialParent={post.parent} bottom={bottom} />}
+      : <ToastProvider><Conversation key={id} id={id} initialParent={post.parent} bottom={bottom} /></ToastProvider>}
   </KeyboardAvoidingView>;
 }
 
 function Conversation({ id, initialParent, bottom }: { id: string; initialParent?: PostComment; bottom: number }) {
   const p = usePalette();
   const router = useRouter();
+  const showToast = useToast();
   const viewer = useSession().session?.user.id;
   const { rows, error, loading, load } = useCommentPages(id, null);
   const [open, setOpen] = useState<Record<string, number>>(initialParent ? { [initialParent.id]: 0 } : {});
@@ -185,6 +190,7 @@ function Conversation({ id, initialParent, bottom }: { id: string; initialParent
         try {
           const result = await requireBackend().rpc('delete_own_comment', { comment: entry.id });
           if (result.error) throw result.error;
+          showToast(t.commentDeleted);
           if (root) setOpen((items) => ({ ...items, [root]: (items[root] ?? 0) + 1 }));
           else {
             if (pinned?.id === entry.id) setHiddenRoot(entry.id);
@@ -246,6 +252,8 @@ function Conversation({ id, initialParent, bottom }: { id: string; initialParent
 }
 
 const layout = StyleSheet.create({
+  profileTarget: { minHeight: 44 },
+  textTarget: { minHeight: 44, minWidth: 44, alignSelf: 'flex-start', justifyContent: 'center' },
   sheet: { flex: 1, paddingTop: 12 },
   header: { paddingHorizontal: side, alignItems: 'center', flexDirection: 'row', gap: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   heading: { flex: 1, fontSize: 20, fontWeight: '800' },

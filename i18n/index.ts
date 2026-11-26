@@ -44,6 +44,8 @@ const es = {
   bookmark: 'Guardar publicación', unbookmark: 'Quitar de guardados', share: 'Compartir',
   dateRelative: 'Fecha', back: 'Volver', cancel: 'Cancelar', delete: 'Borrar',
   example: 'Ejemplo', sampleAuthor: 'Diario de ejemplo', sampleFishing: 'Pesca en el lago Tarnița',
+  sampleData: 'Datos de ejemplo', outingSaved: 'Salida guardada', dataDeleted: 'Datos borrados',
+  exportReady: 'JSON preparado', postDeleted: 'Publicación borrada', commentDeleted: 'Comentario borrado', accountDeleted: 'Cuenta borrada',
   sampleFishingNotes: 'Salida de mañana desde la orilla.', sampleHike: 'Ruta por los montes Apuseni',
   sampleHikeNotes: 'Recorrido por el bosque y las praderas.', sampleFish: 'Perca', sampleBait: 'Cucharilla',
   personal: 'Mi diario', outings: 'Salidas', followers: 'Seguidores', following: 'Seguidos',
@@ -163,6 +165,8 @@ function romanianCountUnit(count: number, singular: string, plural: string) {
 const translations: Record<Locale, Partial<typeof es>> = {
   es,
   en: {
+    sampleData: 'Sample data', outingSaved: 'Outing saved', dataDeleted: 'Data deleted', exportReady: 'JSON ready',
+    postDeleted: 'Post deleted', commentDeleted: 'Comment deleted', accountDeleted: 'Account deleted',
     outingUnit: (count) => count === 1 ? 'outing' : 'outings', catchUnit: (count) => count === 1 ? 'catch' : 'catches',
     viewAnnualStats: 'View annual statistics',
     editCatch: 'Edit catch', saveCatch: 'Save catch', catchSpeciesRequired: 'Enter the species of the catch.',
@@ -221,6 +225,8 @@ const translations: Record<Locale, Partial<typeof es>> = {
     mapLocationDenied: 'Allow location access to centre the map near you.',
   },
   ro: {
+    sampleData: 'Date de exemplu', outingSaved: 'Ieșire salvată', dataDeleted: 'Date șterse', exportReady: 'JSON pregătit',
+    postDeleted: 'Postare ștearsă', commentDeleted: 'Comentariu șters', accountDeleted: 'Cont șters',
     outingUnit: (count) => romanianCountUnit(count, 'ieșire', 'ieșiri'),
     catchUnit: (count) => romanianCountUnit(count, 'captură', 'capturi'), viewAnnualStats: 'Vezi statisticile anuale',
     editCatch: 'Editează captura', saveCatch: 'Salvează captura', catchSpeciesRequired: 'Introdu specia capturii.',

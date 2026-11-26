@@ -8,7 +8,7 @@ import { IconButton, usePalette } from './ui';
 export const homeModes = ['following', 'nearby', 'local'] as const;
 export type HomeMode = typeof homeModes[number];
 const labels = { following: t.followingFeed, nearby: t.nearbyFeed, local: t.diary };
-const controlSize = 40;
+const controlSize = 44;
 export const homeHeaderHeight = (tabs: boolean) => feedHeaderHeight + (tabs ? feedTabHeight : 0);
 
 export function HomeHeader({ mode, hasTabs, avatarUrl, unread, offset, onProfile, onNotifications, onSelect }: {

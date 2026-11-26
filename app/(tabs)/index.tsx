@@ -10,19 +10,23 @@ import { FeedCard, FeedSkeleton } from '../../components/FeedCard';
 import { TabContent, useHomeTabScroll, useTabClearance } from '../../components/GlassTabBar';
 import { HomeHeader, homeHeaderHeight, homeModes } from '../../components/HomeHeader';
 import type { HomeMode } from '../../components/HomeHeader';
+import { SampleDataBanner } from '../../components/SampleDataBanner';
 import { SocialFeed } from '../../components/SocialFeed';
+import { useToast } from '../../components/Toast';
 import { EmptyState, Notice, styles, usePalette } from '../../components/ui';
-import { updateOuting } from '../../db/diary';
+import { deleteOutings, updateOuting } from '../../db/diary';
 import { Outing } from '../../db/model';
 import { useOutingPages } from '../../db/useDiary';
 import { t } from '../../i18n';
 import { backend, useSession } from '../../services/backend';
+import { selectionFeedback } from '../../services/interaction';
 import { profilesFor } from '../../services/social';
 import type { Profile } from '../../services/social';
 
 export default function Feed() {
   const router = useRouter();
   const db = useSQLiteContext();
+  const showToast = useToast();
   const p = usePalette();
   const { top } = useSafeAreaInsets();
   const { session, guest } = useSession();
@@ -56,6 +60,7 @@ export default function Feed() {
     compact?.set(false);
     headerOffset.set(0);
     setMode(next);
+    selectionFeedback();
   }, [compact, headerOffset, mode]);
   const step = useCallback((direction: number) => {
     const next = homeModes[homeModes.indexOf(mode) + direction];
@@ -71,6 +76,19 @@ export default function Feed() {
     }), [step]);
   const { items, error, refreshing, load, change } = useOutingPages({}, { preserveOnFocus: true });
   const currentAuthor = author?.id === viewer ? author : undefined;
+
+  function removeExamples() {
+    Alert.alert(t.deleteSamplesPrompt, undefined, [
+      { text: t.cancel, style: 'cancel' },
+      { text: t.delete, style: 'destructive', onPress: async () => {
+        try {
+          await deleteOutings(db, true);
+          await load(true, true);
+          showToast(t.dataDeleted);
+        } catch { Alert.alert(t.deleteError); }
+      } },
+    ]);
+  }
 
   async function react(id: string, modify: (item: Outing) => Outing) {
     let changed: Outing | undefined;
@@ -93,6 +111,7 @@ export default function Feed() {
             maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 0 }}
             contentContainerStyle={{ paddingTop: listTop, paddingBottom: bottom }}
             refreshing={refreshing} onRefresh={() => void load(true)} onEndReached={() => void load(false)}
+            ListHeaderComponent={items?.some((item) => item.sample) ? <SampleDataBanner onDelete={removeExamples} /> : undefined}
             ListEmptyComponent={error ? undefined : items ? <EmptyState icon="camera-outline" message={t.empty}
               action={t.addFirstOuting} onAction={() => router.push('/create')} /> : <FeedSkeleton />}
             ListFooterComponent={error ? <Notice message={t.loadError} retry={() => void load(true)} /> : undefined}

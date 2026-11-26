@@ -11,10 +11,12 @@ import { PeopleResults } from '../../components/PeopleResults';
 import { PostGrid } from '../../components/PostGrid';
 import { ReelVideo } from '../../components/ReelVideo';
 import { GridSkeleton } from '../../components/Skeleton';
+import { PressFeedback } from '../../components/PressFeedback';
 import { Button, EmptyState, IconButton, Notice, side, styles, usePalette } from '../../components/ui';
 import type { OutingType } from '../../db/model';
 import { t } from '../../i18n';
 import { backend, useSession } from '../../services/backend';
+import { selectionFeedback } from '../../services/interaction';
 import { discoveryPage, pageSize, profilesFor, reelsAvailable } from '../../services/social';
 import type { Profile, SocialPost } from '../../services/social';
 
@@ -101,8 +103,10 @@ function CommunityPosts({ mode, query, category, viewer, hasReels, bottom, clear
           {item.video ? <Button label={t.playReel} icon="play-outline" onPress={() => setPlaying(item.id)} />
             : <Notice message={t.reelPlaybackError} retry={retry} />}
         </View>}
-      {!!item.author && <Text style={{ color: p.accent, fontWeight: '700' }} accessibilityRole="link" onPress={() =>
-        router.push({ pathname: '/user/[id]', params: { id: item.user_id } })}>{item.author.display_name}</Text>}
+      {!!item.author && <PressFeedback style={layout.authorLink} accessibilityRole="link" onPress={() =>
+        router.push({ pathname: '/user/[id]', params: { id: item.user_id } })}>
+        <Text style={{ color: p.accent, fontWeight: '700' }}>{item.author.display_name}</Text>
+      </PressFeedback>}
       {!!item.caption && <Text numberOfLines={3} style={{ color: p.ink }}>{item.caption}</Text>}
       <Button label={t.comments} icon="chatbubble-outline" onPress={() =>
         router.push({ pathname: '/post/comments', params: { id: item.id } })} />
@@ -163,7 +167,11 @@ export default function Explore() {
           {!!query && <IconButton name="close-circle-outline" label={t.clearCommunitySearch} onPress={() => setQuery('')} />}
         </View>
         {mode !== 'people' && <CategoryChips value={category} onChange={setCategory} />}
-        <FeedTabs items={modes} labels={labels} selected={mode} onSelect={setMode} />
+        <FeedTabs items={modes} labels={labels} selected={mode} onSelect={(next) => {
+          if (next === mode) return;
+          selectionFeedback();
+          setMode(next);
+        }} />
       </>}
     </View>
     {!backend ? <Notice message={t.backendUnavailable} /> : <>
@@ -191,4 +199,5 @@ const layout = StyleSheet.create({
   input: { flex: 1, minWidth: 0, minHeight: 44, paddingRight: 12, fontSize: 16 },
   preview: { width: '100%', aspectRatio: 4 / 5, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   create: { paddingHorizontal: side, paddingVertical: 4 },
+  authorLink: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignSelf: 'flex-start' },
 });

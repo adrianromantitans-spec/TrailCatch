@@ -7,12 +7,15 @@ import { useSQLiteContext } from 'expo-sqlite';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import Storage from 'expo-sqlite/kv-store';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, BackHandler, Pressable, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Alert, BackHandler, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
+import { PressFeedback as Pressable } from '../../components/PressFeedback';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { AnnualBars, monthName } from '../../components/AnnualBars';
 import { TabContent, useTabClearance } from '../../components/GlassTabBar';
 import { FeedHeader } from '../../components/FeedHeader';
+import { SampleDataBanner } from '../../components/SampleDataBanner';
 import { GridSkeleton } from '../../components/Skeleton';
+import { useToast } from '../../components/Toast';
 import { Avatar, Button, EmptyState, Field, IconButton, IconName, Notice, onBrand, styles, usePalette } from '../../components/ui';
 import { allOutings, deleteOutings } from '../../db/diary';
 import { localDate, PAGE_SIZE, photoList } from '../../db/model';
@@ -20,6 +23,7 @@ import type { Outing, OutingType, Photo } from '../../db/model';
 import { useDiary } from '../../db/useDiary';
 import { formatDiaryCount, locale, t } from '../../i18n';
 import { backend, useSession } from '../../services/backend';
+import { selectionFeedback } from '../../services/interaction';
 import { exportPhotos, photoSource, removeAllPhotos } from '../../services/photos';
 import { annualStats, diaryStats } from '../../services/stats';
 
@@ -100,6 +104,7 @@ async function shareDiary(db: SQLiteDatabase) {
 
 export default function Profile() {
   const router = useRouter();
+  const showToast = useToast();
   const { session } = useSession();
   const viewer = session?.user.id;
   const p = usePalette();
@@ -187,7 +192,7 @@ export default function Profile() {
   async function exportData() {
     if (busy) return;
     setBusy(true);
-    try { await shareDiary(db); }
+    try { await shareDiary(db); showToast(t.exportReady); }
     catch { Alert.alert(t.exportError); }
     finally { setBusy(false); }
   }
@@ -203,6 +208,7 @@ export default function Profile() {
             removeAllPhotos();
             if (exportsDirectory.exists) exportsDirectory.delete();
           }
+          showToast(t.dataDeleted);
         } catch { Alert.alert(t.deleteError); }
         finally { await load(); setBusy(false); }
       } },
@@ -282,14 +288,17 @@ export default function Profile() {
               <Text numberOfLines={1} style={[profileStyles.handle, { color: p.accent }]}>{handle}</Text>
               {!draft && <Pressable cssInterop={false} accessibilityRole="button" accessibilityLabel={t.editProfile} hitSlop={4}
                 onPress={() => { if (viewer) router.push('/account'); else setDraft(currentIdentity); }}
-                style={({ pressed }) => [profileStyles.edit, { borderColor: p.line, backgroundColor: pressed ? p.soft : p.surface }]}>
-                <Ionicons name="pencil-outline" size={13} color={p.accent} />
-                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
-                  style={[profileStyles.editLabel, { color: p.accent }]}>{t.editProfile}</Text>
+                style={profileStyles.editTarget}>
+                <View style={[profileStyles.edit, { borderColor: p.line, backgroundColor: p.surface }]}>
+                  <Ionicons name="pencil-outline" size={13} color={p.accent} />
+                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
+                    style={[profileStyles.editLabel, { color: p.accent }]}>{t.editProfile}</Text>
+                </View>
               </Pressable>}
               {!!currentIdentity.bio.trim() && <Text numberOfLines={2} style={[profileStyles.bio, { color: p.muted }]}>{currentIdentity.bio.trim()}</Text>}
             </View>
           </View>
+          {outings.some((item) => item.sample) && <SampleDataBanner inset={0} onDelete={() => confirm(true)} />}
           {draft ? <View style={styles.group}>
             <Field label={t.displayName} value={draft.display_name} maxLength={80}
               onChangeText={(display_name) => setDraft({ ...draft, display_name })} />
@@ -340,7 +349,10 @@ export default function Profile() {
         renderSectionHeader={() => (items || error) ? <View style={{ backgroundColor: p.bg }}>
           <View accessibilityRole="tablist" style={profileStyles.tabs}>
             {gridTabs.map((key) => <Pressable key={key} cssInterop={false} accessibilityRole="tab"
-              accessibilityState={{ selected: tab === key }} onPress={() => { setTab(key); setLimit(PAGE_SIZE); }}
+              accessibilityState={{ selected: tab === key }} onPress={() => {
+                if (tab !== key) selectionFeedback();
+                setTab(key); setLimit(PAGE_SIZE);
+              }}
               style={[profileStyles.tab, { borderColor: tab === key ? p.accent : 'transparent' }]}>
               <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}
                 style={[profileStyles.tabLabel, { color: tab === key ? p.accent : p.muted }]}>{t[key]}</Text>
@@ -422,8 +434,9 @@ const profileStyles = StyleSheet.create({
   avatarRing: { padding: 3, borderWidth: 1, borderRadius: (avatarSize + 8) / 2 },
   avatar: { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 },
   name: { maxWidth: '100%', flexShrink: 1, fontSize: 20, fontWeight: '700' },
-  edit: { flexDirection: 'row', gap: 4, height: 36, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center',
-    marginTop: 4, paddingHorizontal: 8, borderWidth: StyleSheet.hairlineWidth, borderRadius: 8 },
+  editTarget: { minHeight: 44, alignSelf: 'stretch', justifyContent: 'center' },
+  edit: { flexDirection: 'row', gap: 4, height: 36, alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 8, borderWidth: StyleSheet.hairlineWidth, borderRadius: 8 },
   editLabel: { flexShrink: 1, fontSize: 12, fontWeight: '700' },
   handle: { fontSize: 13 },
   bio: { fontSize: 13 },

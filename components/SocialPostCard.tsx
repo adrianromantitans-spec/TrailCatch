@@ -1,16 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Share, StyleSheet, Text, View } from 'react-native';
+import { PressFeedback as Pressable } from './PressFeedback';
 import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { relativeDate, t } from '../i18n';
+import { lightImpact } from '../services/interaction';
 import type { SocialPost } from '../services/social';
 import { CatchBadges } from './CatchBadge';
 import { FeedActions } from './FeedActions';
 import { feedCardAvatarSize, feedCardLayout } from './FeedCard';
-import { FeedPhotos } from './FeedPhotos';
+import { FeedPhotos, ProgressiveFeedImage } from './FeedPhotos';
 import type { FeedSwipe } from './FeedPhotos';
 import { Avatar, Button, onBrand, styles, usePalette } from './ui';
 
@@ -29,23 +30,27 @@ export function SocialPostCard({ post, viewer, onLike, onSave, onFollow, feedSwi
   const author = post.author?.display_name ?? t.unavailable;
   const category = post.trip_preview ? t[post.trip_preview.type] : post.video ? t.reels : t.post;
 
+  function likeWithHeart() {
+    heart.set(0);
+    heart.set(withSequence(
+      withTiming(1.15, { duration: 190, reduceMotion: ReduceMotion.System }),
+      withTiming(1, { duration: 170, reduceMotion: ReduceMotion.System }),
+      withTiming(0, { duration: 240, reduceMotion: ReduceMotion.System }),
+    ));
+    lightImpact();
+    if (!post.liked) onLike(true);
+  }
+
   function likePhoto() {
     const now = Date.now();
     if (now - lastTap.current < 280) {
       lastTap.current = 0;
-      heart.set(0);
-      heart.set(withSequence(
-        withTiming(1.15, { duration: 190, reduceMotion: ReduceMotion.System }),
-        withTiming(1, { duration: 170, reduceMotion: ReduceMotion.System }),
-        withTiming(0, { duration: 240, reduceMotion: ReduceMotion.System }),
-      ));
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      if (!post.liked) onLike(true);
+      likeWithHeart();
     } else lastTap.current = now;
   }
 
   return <View style={[feedCardLayout.card, { backgroundColor: p.surface, borderColor: p.line }]}>
-    <Pressable accessibilityRole="button" accessibilityLabel={author} hitSlop={4}
+    <Pressable accessibilityRole="button" accessibilityLabel={author} hitSlop={6} style={feedCardLayout.avatarLink}
       onPress={() => router.push({ pathname: '/user/[id]', params: { id: post.user_id } })}>
       {post.author?.avatar_url ? <Image source={post.author.avatar_url} style={feedCardLayout.avatar} /> : <Avatar size={feedCardAvatarSize} />}
     </Pressable>
@@ -62,8 +67,8 @@ export function SocialPostCard({ post, viewer, onLike, onSave, onFollow, feedSwi
         </Pressable>}
       </View>
       {!!post.caption && <Text numberOfLines={expanded ? undefined : 3} style={[feedCardLayout.copy, { color: p.ink }]}>{post.caption}</Text>}
-      {post.caption.length > 100 && <Text accessibilityRole="button" style={{ color: p.accent }}
-        onPress={() => setExpanded(!expanded)}>{expanded ? t.less : t.more}</Text>}
+      {post.caption.length > 100 && <Pressable accessibilityRole="button" accessibilityState={{ expanded }} style={cardStyles.commentLink}
+        onPress={() => setExpanded(!expanded)}><Text style={{ color: p.accent }}>{expanded ? t.less : t.more}</Text></Pressable>}
       {post.video && <Button label={t.playReel} icon="play-outline" onPress={open} />}
       <CatchBadges catches={post.trip_preview?.catches} />
       {!!post.latestComment && <Text numberOfLines={1} style={{ color: p.ink }}>
@@ -79,10 +84,12 @@ export function SocialPostCard({ post, viewer, onLike, onSave, onFollow, feedSwi
             ? () => router.push({ pathname: '/outing/[id]', params: { id: post.trip_id! } })
             : open} />}
       </View>}
-      <FeedPhotos photos={post.photos} photoKey={(photo) => photo.id} feedSwipe={feedSwipe}
-        renderPhoto={(photo) => <Pressable onPress={likePhoto} accessibilityLabel={t.like} style={styles.screen}>
-          <Image source={photo.uri} placeholder={photo.thumbnail} contentFit="cover" placeholderContentFit="cover"
-            cachePolicy="memory" recyclingKey={photo.id} style={[StyleSheet.absoluteFill, { backgroundColor: p.soft }]} />
+      <FeedPhotos photos={post.photos} photoKey={(photo, index) => `${photo.id}-${index}`} feedSwipe={feedSwipe}
+        renderPhoto={(photo) => <Pressable onPress={likePhoto} accessibilityRole="button" accessibilityLabel={t.like}
+          accessibilityActions={[{ name: 'activate' }]} onAccessibilityAction={({ nativeEvent }) => {
+            if (nativeEvent.actionName === 'activate') likeWithHeart();
+          }} style={styles.screen}>
+          <ProgressiveFeedImage key={photo.uri} source={photo.uri} thumbnail={photo.thumbnail} />
         </Pressable>}
         overlay={<Animated.View pointerEvents="none" style={[cardStyles.heart, animation]}>
           <Ionicons name="heart" size={68} color={onBrand} />
@@ -99,5 +106,5 @@ const cardStyles = StyleSheet.create({
   authorText: { flex: 1, minWidth: 0 },
   follow: { maxWidth: '42%', minHeight: 44, justifyContent: 'center' },
   heart: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
-  commentLink: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' },
+  commentLink: { alignSelf: 'flex-start', minHeight: 44, minWidth: 44, justifyContent: 'center' },
 });
